@@ -98,18 +98,23 @@ public enum Checker {
                 }
             }
 
-            // Read back.
-            var read = 1.0
+            // Read back. `nil` when recognition could not run — reported as
+            // not measured, never as unreadable.
+            var read: Double? = 1
             if let composite, !words.trimmingCharacters(in: .whitespaces).isEmpty {
                 let region = (ink ?? plan.frames[path] ?? geometry.trim).insetBy(dx: -geometry.unit * 20, dy: -geometry.unit * 20)
                     .intersection(geometry.bleed)
                 let normalized = CGRect(x: region.minX / Double(geometry.pixelWidth), y: region.minY / Double(geometry.pixelHeight),
                                         width: region.width / Double(geometry.pixelWidth), height: region.height / Double(geometry.pixelHeight))
-                read = ReadBack.readFraction(of: words, in: composite, rect: normalized)
-                if read < 1 {
+                read = ReadBack.measure(words, in: composite, rect: normalized)
+                if let read, read < 1 {
                     findings.append(Finding(check: "read-back", level: read < 0.5 ? .fail : .warn, layer: path, id: id,
                                             message: "text recognition reads \(Int((read * 100).rounded()))% of \(name)'s words back",
                                             fix: read < 0.5 ? "more contrast, a plainer face, less tracking, or a larger size" : nil))
+                } else if read == nil {
+                    findings.append(Finding(check: "read-back", level: .warn, layer: path, id: id,
+                                            message: "\(name) was not read back: text recognition could not run (the Neural Engine was busy)",
+                                            fix: "run `design check` again when no image model is generating"))
                 }
             }
 
@@ -135,7 +140,7 @@ public enum Checker {
                 lines: fit?.lineCount ?? 0, fits: fit?.fits ?? false,
                 ink: ink.map { [$0.minX, $0.minY, $0.width, $0.height].map { $0.rounded() } },
                 insideSafe: insideSafe, insideTrim: insideTrim, contrast: ratio.map { ($0 * 100).rounded() / 100 },
-                contrastNeeded: needed, readBack: (read * 100).rounded() / 100,
+                contrastNeeded: needed, readBack: read.map { ($0 * 100).rounded() / 100 },
                 color: decision?.color.hex ?? "", plate: decision?.plate?.hex, movedTo: decision?.movedTo?.rawValue,
                 note: decision?.note))
         }

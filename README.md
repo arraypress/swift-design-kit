@@ -85,7 +85,7 @@ These are measured, never judged:
 | clipped / safe-area | The text layer's own ink (outline, shadow and plate included) reaches past the page or the safe area. |
 | fit | The text does not fit even at `min_size`. |
 | contrast | The median luminance of the letters against a 3-unit ring round them falls below 3:1 for type 30 units and up, or 4.5:1 below that. The fix names the plate that would reach the target. |
-| read-back | On-device text recognition reads back fewer of the words than were drawn. |
+| read-back | On-device text recognition reads back fewer of the words than were drawn. When recognition cannot run at all (a busy Neural Engine; it is retried, then run on the CPU), the result is "not measured", never "unreadable". |
 | print-size | Text prints under 6 pt (fail) or under 8 pt (warning). |
 | resolution | A picture is drawn more than 1.25× its pixels. |
 | bleed | A print page has less than 3 mm of bleed, or a picture that does not reach the bleed edge. |

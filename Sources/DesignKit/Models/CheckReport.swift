@@ -79,8 +79,9 @@ public struct TextMeasure: Codable, Equatable, Sendable {
     public var contrast: Double?
     /// The ratio it needs: 3 for large type, 4.5 otherwise.
     public var contrastNeeded: Double
-    /// Share of the words on-device text recognition reads back.
-    public var readBack: Double
+    /// Share of the words on-device text recognition reads back; `nil` when
+    /// recognition could not run.
+    public var readBack: Double?
     public var color: String
     public var plate: String?
     public var movedTo: String?

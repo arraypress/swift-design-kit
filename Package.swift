@@ -30,7 +30,7 @@ let package = Package(
         .package(url: "https://github.com/arraypress/swift-document-theme.git", from: "0.1.0"),
         .package(url: "https://github.com/arraypress/swift-recipe-kit.git", from: "0.3.1"),
         .package(url: "https://github.com/arraypress/swift-video-grade.git", from: "0.3.0"),
-        .package(url: "https://github.com/arraypress/swift-legibility.git", from: "0.1.1"),
+        .package(url: "https://github.com/arraypress/swift-legibility.git", from: "0.2.1"),
         .package(url: "https://github.com/arraypress/swift-image-generation.git", from: "0.13.2"),
         .package(url: "https://github.com/arraypress/swift-upscale.git", from: "2.1.0"),
     ],
