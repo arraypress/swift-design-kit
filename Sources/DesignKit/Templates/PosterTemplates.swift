@@ -31,7 +31,7 @@ extension StarterTemplates {
            "frame": {"anchor": "top-left", "height": 0.42}},
           {"type": "text", "id": "date", "text": "{date}", "weight": "semibold", "size": 46, "max_lines": 1, "align": "left",
            "valign": "top", "color": "#111111", "plate": {"color": "#FFFFFF", "padding": 16, "radius": 6},
-           "frame": {"anchor": "top-left", "height": 0.07, "x": 0.015, "below": "event", "gap": 0.04}},
+           "frame": {"anchor": "top-left", "height": 0.07, "x": 0.022, "below": "event", "gap": 0.04}},
           {"type": "text", "id": "details", "text": "{details}", "weight": "medium", "size": 40, "max_lines": 2, "align": "left",
            "valign": "top", "color": "auto", "frame": {"anchor": "top-left", "height": 0.1, "below": "date", "gap": 0.03}},
           {"type": "text", "id": "venue", "text": "{venue}", "weight": "bold", "size": 46, "max_lines": 2, "align": "left",

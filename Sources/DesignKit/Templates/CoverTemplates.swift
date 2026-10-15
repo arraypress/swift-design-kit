@@ -40,13 +40,13 @@ extension StarterTemplates {
           {"name": "background", "summary": "the art", "default": "gradient:seed=7,palette=reactor,motif=aurora"}
         ],
         "layers": [
-          {"type": "background", "id": "background", "fill": "{background}", "darken": 0.3, "grain": 0.15},
+          {"type": "background", "id": "background", "fill": "{background}", "darken": 0.4, "grain": 0.15},
           {"type": "text", "id": "title", "text": "{title}", "weight": "black", "size": 300, "min_size": 90, "max_lines": 3,
            "line_height": 0.86, "tracking": -15, "case": "upper", "align": "left", "valign": "top", "color": "#FFFFFF",
            "frame": {"anchor": "top-left", "height": 0.75}},
           {"type": "text", "id": "artist", "text": "{artist}", "weight": "bold", "size": 40, "tracking": 200, "case": "upper",
            "align": "left", "valign": "bottom", "color": "#000000", "plate": {"color": "#FFFFFF", "padding": 18, "radius": 0},
-           "frame": {"anchor": "bottom-left", "width": 0.7, "height": 0.08, "x": 0.015, "y": -0.015}}
+           "frame": {"anchor": "bottom-left", "width": 0.7, "height": 0.08, "x": 0.02, "y": -0.025}}
         ]
       },
       {
