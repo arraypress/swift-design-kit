@@ -19,7 +19,7 @@ extension Layer: Codable {
         // Every layer.
         case type, id, frame, opacity, blend, rotation, shadow, glow, fade
         // Background.
-        case fill, fit, blur, darken, scrim, grade, duotone, grain, vignette, upscale, edit
+        case fill, fit, blur, darken, scrim, grade, duotone, grain, vignette, upscale, edit, span
         case gradientMap = "gradient_map"
         case upscaledWith = "upscaled_with"
         // Text.
@@ -56,7 +56,7 @@ extension Layer: Codable {
     static func keys(for type: String) -> [Keys] {
         common + {
             switch type {
-            case "background": [.fill, .fit, .blur, .darken, .scrim, .grade, .duotone, .gradientMap, .grain, .vignette, .upscale, .edit, .upscaledWith]
+            case "background": [.fill, .fit, .blur, .darken, .scrim, .grade, .duotone, .gradientMap, .grain, .vignette, .upscale, .edit, .upscaledWith, .span]
             case "text": [.text, .font, .weight, .size, .minSize, .maxLines, .fit, .tracking, .lineHeight, .textCase,
                           .align, .valign, .color, .accent, .muted, .gradient, .stroke, .plate, .avoid,
                           .axes, .features, .letters, .path, .extrude, .inline]
@@ -79,7 +79,7 @@ extension Layer: Codable {
         guard Self.types.contains(type) else { throw RecipeError(Choices.refusal(type, at: path + ".type", among: Self.types)) }
         try decoder.refuseUnknownKeys(Self.keys(for: type).map(\.rawValue), noun: "\(type) layer")
 
-        let content: Content
+        var content: Content
         switch type {
         case "background":
             let grain = try c.number(.grain, in: 0...1, or: 0)
@@ -90,6 +90,12 @@ extension Layer: Codable {
                 duotone: try Self.pair(c, .duotone, path: path), gradientMap: try Self.colors(c, .gradientMap, path: path), grain: grain,
                 vignette: try c.number(.vignette, in: 0...1, or: 0), upscale: try c.decodeIfPresent(Bool.self, forKey: .upscale),
                 edit: try c.decodeIfPresent(AIEdit.self, forKey: .edit), upscaledWith: try c.decodeIfPresent(String.self, forKey: .upscaledWith)))
+            if let span = try c.decodeIfPresent([Int].self, forKey: .span) {
+                guard span.count == 2, span[1] >= 1, (0..<span[1]).contains(span[0]) else {
+                    throw RecipeError("\(path).span is [page, pages]: page from 0, below pages")
+                }
+                if case .background(var background) = content { background.span = span; content = .background(background) }
+            }
         case "text":
             let weight = try c.decodeIfPresent(String.self, forKey: .weight)
             if let weight, !Fonts.weights.contains(weight) {
@@ -275,6 +281,7 @@ extension Layer: Codable {
             try c.encodeIfPresent(b.upscale, forKey: .upscale)
             try c.encodeIfPresent(b.edit, forKey: .edit)
             try c.encodeIfPresent(b.upscaledWith, forKey: .upscaledWith)
+            try c.encodeIfPresent(b.span, forKey: .span)
         case .text(let t):
             try c.encode("text", forKey: .type)
             try c.encode(t.text, forKey: .text)

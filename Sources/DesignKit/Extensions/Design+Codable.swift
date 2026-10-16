@@ -90,7 +90,7 @@ extension CanvasSpec: Codable {
 extension Design: Codable {
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case design, canvas, template, vars, grid, fonts, palette, brand, layers
+        case design, canvas, template, vars, grid, fonts, palette, brand, motion, layers
         case googleFonts = "google_fonts"
     }
 
@@ -105,6 +105,7 @@ extension Design: Codable {
                   googleFonts: try c.decodeIfPresent(String.self, forKey: .googleFonts),
                   brand: try c.decodeIfPresent(String.self, forKey: .brand),
                   layers: try c.decode([Layer].self, forKey: .layers))
+        motion = try c.decodeIfPresent(MotionSpec.self, forKey: .motion)
         if let commit = googleFonts, commit.count != 40 || !commit.allSatisfy(\.isHexDigit) {
             throw RecipeError("google_fonts is \"\(commit)\"; it is a google/fonts commit, 40 hex digits")
         }
@@ -121,6 +122,7 @@ extension Design: Codable {
         try c.encodeIfPresent(palette, forKey: .palette)
         try c.encodeIfPresent(googleFonts, forKey: .googleFonts)
         try c.encodeIfPresent(brand, forKey: .brand)
+        try c.encodeIfPresent(motion, forKey: .motion)
         try c.encode(layers, forKey: .layers)
     }
 }

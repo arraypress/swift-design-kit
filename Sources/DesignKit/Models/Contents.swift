@@ -41,6 +41,8 @@ public struct BackgroundContent: Equatable, Sendable {
     public var edit: AIEdit?
     /// The upscaler that enlarged it (`swinir@<revision>`), written when made.
     public var upscaledWith: String?
+    /// `[page, pages]`: one background drawn across a carousel's pages, this page taking slice `page` (from 0).
+    public var span: [Int]?
 
     public init(fill: Fill, fit: FitMode = .fill, blur: Double = 0, darken: Double = 0, scrim: Scrim? = nil,
                 grade: LookReference? = nil, duotone: [DesignColor]? = nil, gradientMap: [DesignColor]? = nil,
@@ -58,6 +60,7 @@ public struct BackgroundContent: Equatable, Sendable {
         self.upscale = upscale
         self.edit = edit
         self.upscaledWith = upscaledWith
+        self.span = nil
     }
 }
 

@@ -47,6 +47,8 @@ enum Painter {
         /// Text layers drawn as pictures rather than as words (a PDF whose
         /// font may not be embedded).
         var textAsPictures: Set<String> = []
+        /// Everything but the art: what an animated cover keeps still over its moving art.
+        var overArt = false
 
         static let all = Filter()
 
@@ -61,7 +63,7 @@ enum Painter {
         func includes(_ layer: Layer) -> Bool {
             switch layer.content {
             case .group, .list: return true
-            case .background, .image: return coversBefore == nil
+            case .background, .image: return coversBefore == nil && !overArt
             case .shape, .qr, .texture: return !artOnly
             case .text: return !artOnly && coversBefore == nil
             }

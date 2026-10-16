@@ -1,5 +1,5 @@
 {
-  "originHash" : "b89b75cde2c0c97e915d10fdbe32bd215ba441b64e53f24c2f7b0c3ca90a7510",
+  "originHash" : "1eaca2da046d9c0711b8272c93961d6e32aa7ba5c5cbdef41ed8b3477a1d0d73",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -65,6 +65,15 @@
       }
     },
     {
+      "identity" : "swift-depth-estimator",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/arraypress/swift-depth-estimator.git",
+      "state" : {
+        "revision" : "c30bcddf7c4879f85e9e46a13d2699f107a4f285",
+        "version" : "0.1.0"
+      }
+    },
+    {
       "identity" : "swift-document-theme",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-document-theme.git",
@@ -98,6 +107,15 @@
       "state" : {
         "revision" : "3de996c314c8dd641d250d639b44ec9db4680072",
         "version" : "0.13.2"
+      }
+    },
+    {
+      "identity" : "swift-inpaint",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/arraypress/swift-inpaint.git",
+      "state" : {
+        "revision" : "3b4dd65b4d76c45c622aca570fe5e2c2aeae78e0",
+        "version" : "0.2.0"
       }
     },
     {

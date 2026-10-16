@@ -34,6 +34,8 @@ let package = Package(
         .package(url: "https://github.com/arraypress/swift-psd-kit.git", from: "0.3.0"),
         .package(url: "https://github.com/arraypress/swift-image-generation.git", from: "0.13.2"),
         .package(url: "https://github.com/arraypress/swift-upscale.git", from: "2.1.0"),
+        .package(url: "https://github.com/arraypress/swift-depth-estimator.git", from: "0.1.0"),
+        .package(url: "https://github.com/arraypress/swift-inpaint.git", from: "0.2.0"),
     ],
     targets: [
         .target(
@@ -57,6 +59,8 @@ let package = Package(
                 "DesignKit",
                 .product(name: "ImageGeneration", package: "swift-image-generation"),
                 .product(name: "Upscale", package: "swift-upscale"),
+                .product(name: "DepthEstimator", package: "swift-depth-estimator"),
+                .product(name: "Inpaint", package: "swift-inpaint"),
             ]
         ),
         .testTarget(

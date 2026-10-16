@@ -35,6 +35,8 @@ public struct Design: Equatable, Sendable {
     /// The brand kit it was made with, by name — for the record only: the
     /// brand's colours, faces and logo are written into the design itself.
     public var brand: String?
+    /// How it moves when written as a video (`-o loop.mp4`).
+    public var motion: MotionSpec?
     public var layers: [Layer]
 
     public init(canvas: CanvasSpec, template: String? = nil, vars: [String: String] = [:],
@@ -48,6 +50,7 @@ public struct Design: Equatable, Sendable {
         self.palette = palette
         self.googleFonts = googleFonts
         self.brand = brand
+        self.motion = nil
         self.layers = layers
     }
 }

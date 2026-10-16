@@ -164,9 +164,12 @@ public enum Preparation {
 
     // MARK: Backgrounds
 
-    static func plate(_ background: BackgroundContent, width: Int, height: Int, entry: Layouter.Entry, frame: CGRect,
+    static func plate(_ background: BackgroundContent, width pageWidth: Int, height: Int, entry: Layouter.Entry, frame: CGRect,
                       geometry: CanvasGeometry, textRegions: [CGRect],
                       services: DesignServices) async throws(DesignError) -> (PreparedPicture, SourceNote?) {
+        // A background spanning several pages (a carousel) is drawn once across all of them; this page takes its slice.
+        let span = background.span.flatMap { $0.count == 2 && $0[1] > 1 ? (index: $0[0], count: $0[1]) : nil }
+        let width = pageWidth * (span?.count ?? 1)
         var note: SourceNote?
         var base: CGImage
         switch background.fill {
@@ -228,6 +231,12 @@ public enum Preparation {
             break
         }
         if note?.upscaled == true { note?.upscaledWith = services.upscaler?.pin }
+        if let span {
+            guard let slice = base.cropping(to: CGRect(x: span.index * pageWidth, y: 0, width: pageWidth, height: height)) else {
+                throw .failed("page \(span.index + 1)'s slice of the background could not be cut")
+            }
+            base = slice
+        }
         // Text regions in the plate's own CoreGraphics space.
         let plateCG = Layout.flipped(frame, height: Double(geometry.pixelHeight))
         let regions = textRegions.map { $0.offsetBy(dx: -plateCG.minX, dy: -plateCG.minY) }

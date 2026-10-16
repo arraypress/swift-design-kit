@@ -277,6 +277,7 @@ pinned in the recipe:
 | swift-legibility | Ink box, letter-ring contrast and OCR read-back. |
 | swift-recipe-kit | Strict recipes, `--set` and slots. |
 | swift-image-generation, swift-upscale | Made backgrounds and SwinIR enlargement, in DesignKitAI. |
+| swift-depth-estimator, swift-inpaint | Depth Anything and LaMa for parallax loops, in DesignKitAI. |
 
 ## Checks
 
@@ -350,6 +351,67 @@ CoreGraphics: 13 modes within a mean of 0.6/255 (p99 ≤ 4); soft light mean
 linear dodge 17.8, colour burn 6.1, linear burn 5.6 — CoreGraphics applies a
 layer's opacity before it clamps, Photoshop after, so where the result clips
 they part. The PSD keeps the mode; Photoshop shows its own version of it.
+
+## Carousels
+
+A `Carousel` (`"carousel": 1`) is several pages of one canvas sharing their
+slots, type and palette, with one `background` drawn across all of them: each
+page's background gets `span: [page, pages]`, the art is drawn once at the
+whole strip's width (a gradient for the strip's shape, a picture filled to it)
+and each page takes its slice, so it runs on as the pages are swiped
+(measured: a black-to-white blend across two 200 px pages meets within 3/255
+at the seam). `Carousels.sharedPalette` finds the palette roles once in the
+whole strip and pins them, so `accent` is one colour on every page.
+`CarouselTemplate`s (`carousel-steps`, `carousel-editorial`) make a cover, a
+page per item of one slot (`{item}`, `{n}`, `{count}`) and an end page; each
+page is drawn and checked as any design. A one- or two-character text (a page
+number) that fails read-back is a warning: recognition passes over lone glyphs
+("2" and "4" read 0% on the steps carousel while "1", "3", "5" read).
+
+**Plan for the old `reel` / slide-kit templates** (81 templates, 1,296 slides
+in swift-slide-kit, never released as a CLI): convert them mechanically rather
+than redraw them — a CanvasKit `SlideLayer` is a unit rect, so it maps to a
+`Placement` (`area: trim`, `anchor: top-left`, `width`/`height`/`x`/`y` from
+the rect); its `TextStyle` to a text layer (sizes from the 1080-wide reference
+to design units: × 1000/1080), chips and pills to plates, image plates to
+backgrounds; a slide-kit deck becomes a carousel with `{tokens}` as slots.
+Run the 1,296 slides through both engines and compare pixels before retiring
+slide-kit; `reel`'s video export becomes an animated carousel through the
+`Animator`.
+
+## Mockups
+
+`Mockups.render(design, kind:)` shows a finished design as a `vinyl` sleeve
+(the disc half out, its label in the cover's own colour), a `cd` jewel case
+(hinge, plastic glare), a `phone` (a tall design full screen; a cover as a
+player shows it, on its own blurred colours with bars and controls — shapes,
+no words) or a `poster` pasted on a plaster wall, turned in perspective (Core
+Image) with tape and a shadow. Everything is drawn from the design and a seed
+— no photographs, no brands — and the same seed draws the same scene.
+
+## Animated covers
+
+`Animator.animate(rendered, motion:, to: url)` writes a seamless H.264 loop
+(Spotify Canvas, stories: 3–8 s, 9:16 by the design's canvas) of the design's
+art moving under its still words. `motion` is `zoom` (a push in and back),
+`drift` (a figure of eight) or `parallax`: the art's depth found by Depth
+Anything V2 Small, the nearest third split off with a soft edge, what it
+uncovers filled by LaMa (the hole grown by the movement), and a camera circling
+so the near part moves three times as far as the rest. Over the art: light
+`leaks` on closed paths, `particles` rising one frame-height a loop, grain from
+a cycle of eight. Every movement is a periodic function of the loop's phase, so
+the frame after the last is the first. No video model.
+
+Measured on every loop: the seam (the last frame against the first, over the
+typical step between frames; 1.6 and up fails), each text layer's contrast on
+every frame, and read-back on three frames. A 6 s story loop with leaks and 80
+particles: seam 0.8×, every word 10.5:1 or better on every frame, 54 s in a
+release build; a parallax loop over a generated coastal road (FLUX.2 Klein):
+seam 1.0×, title 5.4:1 at its worst frame, 28 s with both models loaded; a
+replay draws the same frames (the MP4's bytes differ by its timestamps). The
+words are drawn still over the moving art, so a blend between them and the art
+(a multiplied texture) is lost in a loop. The recipe keeps `motion`, with the
+depth and fill models a parallax used.
 
 ## Requirements
 

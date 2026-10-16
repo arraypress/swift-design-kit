@@ -131,7 +131,10 @@ public enum Checker {
                                             message: "text recognition reads \(Int((read * 100).rounded()))% of \(name)'s words back (curved words read back worse: recognition reads straight lines)",
                                             fix: "a gentler bend, if the words must survive being read by a machine"))
                 } else if let read, read < 1 {
-                    findings.append(Finding(check: "read-back", level: read < 0.5 ? .fail : .warn, layer: path, id: id,
+                    // One or two characters (a page number, an initial) are a weak test: recognition
+                    // often passes over a lone glyph it would read in a word. A warning, not a failure.
+                    let short = words.filter { !$0.isWhitespace }.count <= 2
+                    findings.append(Finding(check: "read-back", level: read < 0.5 && !short ? .fail : .warn, layer: path, id: id,
                                             message: "text recognition reads \(Int((read * 100).rounded()))% of \(name)'s words back",
                                             fix: read < 0.5 ? "more contrast, a plainer face, less tracking, or a larger size" : nil))
                 } else if read == nil {

@@ -75,3 +75,13 @@ enum Bitmaps {
 
     static let ciContext = CIContext(options: [.cacheIntermediates: false, .workingColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!])
 }
+
+extension Bitmaps {
+    /// The RGBA bytes of `image`, premultiplied, as drawn into the one bitmap.
+    static func rgba(_ image: CGImage) -> [UInt8]? {
+        guard let context = context(width: image.width, height: image.height), let data = context.data else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Array(UnsafeBufferPointer(start: data.bindMemory(to: UInt8.self, capacity: image.width * image.height * 4),
+                                         count: image.width * image.height * 4))
+    }
+}

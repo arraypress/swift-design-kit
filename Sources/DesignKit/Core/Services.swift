@@ -54,6 +54,21 @@ public protocol ImageUpscaling: Sendable {
     func upscale(_ image: CGImage) async throws(DesignError) -> CGImage
 }
 
+/// Finds how near each part of a picture is.
+public protocol DepthEstimating: Sendable {
+    /// The model and its revision, as a recipe records them.
+    var pin: String { get }
+    /// Relative nearness for every pixel of `image`, `0…1` (1 nearest), row by row from the top.
+    func nearness(of image: CGImage) async throws(DesignError) -> [Float]
+}
+
+/// Fills in part of a picture.
+public protocol Inpainting: Sendable {
+    var pin: String { get }
+    /// `image` with what `mask` marks (white) filled from its surroundings.
+    func filled(_ image: CGImage, mask: CGImage) async throws(DesignError) -> CGImage
+}
+
 /// What a render may call on.
 public struct DesignServices: Sendable {
 
@@ -65,6 +80,10 @@ public struct DesignServices: Sendable {
 
     /// Fetches open fonts on first use; `nil` refuses an open font not already fetched.
     public var fonts: (any FontFetching)?
+
+    /// Depth and fill, for a parallax motion; `nil` refuses one.
+    public var depth: (any DepthEstimating)?
+    public var inpainter: (any Inpainting)?
 
     /// Where relative paths in the design (pictures, fonts, looks) are found.
     public var folder: URL
