@@ -28,6 +28,7 @@ enum Layouter {
             let path = prefix.isEmpty ? String(index) : "\(prefix).\(index)"
             var found = [Entry(path: path, layer: layer, parent: parent)]
             if case .group(let children) = layer.content { found += entries(children, prefix: path, parent: path) }
+            if case .list(let list) = layer.content { found += entries(list.lines, prefix: path, parent: path) }
             return found
         }
     }
@@ -61,6 +62,19 @@ enum Layouter {
         return (frames, fits)
     }
 
+    /// `layers` with the layer at `path` (`2`, `2.0`) changed; groups are walked, lists' lines are not.
+    static func updating(_ layers: [Layer], at path: String, _ change: (inout Layer) -> Void) -> [Layer] {
+        let parts = path.split(separator: ".").compactMap { Int($0) }
+        guard let first = parts.first, layers.indices.contains(first) else { return layers }
+        var layers = layers
+        if parts.count == 1 {
+            change(&layers[first])
+        } else if case .group(let children) = layers[first].content {
+            layers[first].content = .group(updating(children, at: parts.dropFirst().map(String.init).joined(separator: "."), change))
+        }
+        return layers
+    }
+
     /// Backgrounds reach the bleed; everything else stays in the safe area.
     static func defaultArea(_ layer: Layer) -> Area {
         switch layer.content {
@@ -73,7 +87,11 @@ enum Layouter {
     static func layout(_ text: TextContent, vars: [String: String], face: ResolvedFace?, frame: CGRect,
                        geometry: CanvasGeometry) -> TextFit? {
         let words = Words.cased(Words.filled(text.text, vars: vars), text.textCase)
-        let style = TextStyles.style(text, face: face, color: .white)
+        let style = TextStyles.style(text, face: face, color: .white, words: TextStyles.drawn(text, vars: vars))
+        if let path = text.path {
+            return TextPaths.layout(words, style: style, path: path, in: Layout.flipped(frame, height: Double(geometry.pixelHeight)),
+                                    scale: geometry.unit)?.fit
+        }
         return TextDrawer.layout(text: words, style: style, in: Layout.flipped(frame, height: Double(geometry.pixelHeight)),
                                  verticalAlignment: TextStyles.vertical(text.valign), scale: geometry.unit)
     }

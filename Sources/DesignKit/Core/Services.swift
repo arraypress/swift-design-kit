@@ -23,6 +23,22 @@ public protocol ImageGenerating: Sendable {
 
     /// The picture for a pinned fill. The same pin draws the same picture.
     func image(for fill: AIFill) async throws(DesignError) -> CGImage
+
+    /// `edit` with model, revision, shape and seed pinned for a picture `width`×`height`.
+    func pinned(_ edit: AIEdit, width: Int, height: Int) throws(DesignError) -> AIEdit
+
+    /// `image` changed by a pinned edit. The same pin and picture draw the same result.
+    func edited(_ image: CGImage, edit: AIEdit) async throws(DesignError) -> CGImage
+}
+
+public extension ImageGenerating {
+    func pinned(_ edit: AIEdit, width: Int, height: Int) throws(DesignError) -> AIEdit {
+        throw .modelMissing("this image model cannot edit pictures")
+    }
+
+    func edited(_ image: CGImage, edit: AIEdit) async throws(DesignError) -> CGImage {
+        throw .modelMissing("this image model cannot edit pictures")
+    }
 }
 
 /// Enlarges a picture.
@@ -30,6 +46,9 @@ public protocol ImageUpscaling: Sendable {
 
     /// How many times larger each side comes back.
     var factor: Int { get }
+
+    /// The model and its pinned revision (`swinir@5f65a34…`), recorded in a recipe when it enlarges a picture.
+    var pin: String { get }
 
     /// `image`, `factor` times larger.
     func upscale(_ image: CGImage) async throws(DesignError) -> CGImage

@@ -59,6 +59,7 @@ enum SetPaths {
             case .text(let text): SlotFilling.markers(in: text.text)
             case .qr(let qr): SlotFilling.markers(in: qr.text)
             case .group(let children): Array(wordMarkers(children))
+            case .list(let list): if case .text(let words) = list.items { SlotFilling.markers(in: words) } else { [] }
             default: []
             }
         })
@@ -78,6 +79,7 @@ enum SetPaths {
             })
         case "image": return ("\(layer).source", .text)
         case "text", "qr": return ("\(layer).text", .text)
+        case "list": return ("\(layer).items", .text)
         default: throw RecipeError("that layer is a group or a shape; set one of its fields (\(layer).opacity=0.5)")
         }
     }

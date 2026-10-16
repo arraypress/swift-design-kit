@@ -38,6 +38,15 @@ public enum Fonts {
     /// Fonts already resolved this process, by what the design named.
     private static let registered = Mutex<[String: String]>([:])
 
+    /// Families drawn from Google Fonts files fetched this process, and their font files.
+    private static let fetchedFamilies = Mutex<[String: [URL]]>([:])
+
+    /// Whether `family` (as CoreText reads it) was drawn from fetched Google Fonts files.
+    static func isFetched(_ family: String) -> Bool { fetchedFamilies.withLock { $0[family] != nil } }
+
+    /// The font files a fetched Google family was drawn from.
+    static func fetchedFiles(_ family: String) -> [URL] { fetchedFamilies.withLock { $0[family] ?? [] } }
+
     /// Whether `name` can be drawn without fetching anything: bundled, or
     /// installed on this Mac.
     static func isLocal(_ name: String) -> Bool {
@@ -73,16 +82,21 @@ public enum Fonts {
             } else if let fetcher {
                 files = try await fetcher.files(for: open)
             } else {
-                throw .missing("\(open.family) is an open font (\(open.licence)) fetched on first use, and nothing here can fetch it"
+                throw .missing("\(open.family) is a Google font (\(open.licence)) fetched on first use, and nothing here can fetch it"
                                + " — `design` fetches it; or install it")
             }
             for url in files where ["ttf", "otf"].contains(url.pathExtension.lowercased()) { register(url) }
-            guard FontResolver.isAvailable(open.family) else { throw .invalid("\(open.family) was fetched but CoreText cannot read it") }
-            family = open.family
+            // The name CoreText reads can differ from the Google Fonts name (`Fjord One` is `Fjord`).
+            let drawn = files.lazy.filter { ["ttf", "otf"].contains($0.pathExtension.lowercased()) }.compactMap(familyName(of:)).first
+                ?? open.drawnFamily
+            guard FontResolver.isAvailable(drawn) else { throw .invalid("\(open.family) was fetched but CoreText cannot read it") }
+            family = drawn
+            let fonts = files.filter { ["ttf", "otf"].contains($0.pathExtension.lowercased()) }
+            fetchedFamilies.withLock { $0[drawn] = fonts }
         } else {
             let close = FieldPaths.closest(font, among: installedFamilies() + OpenFonts.all.map(\.family))
-            throw .missing("no font family \"\(font)\" on this machine or among the open fonts" + (close.map { " — did you mean \($0)?" } ?? "")
-                           + "; `design fonts` lists them, and a .ttf/.otf path works too")
+            throw .missing("no font family \"\(font)\" on this machine or in Google Fonts" + (close.map { " — did you mean \($0)?" } ?? "")
+                           + "; `design fonts` lists them (`--google NAME` searches all of Google Fonts), and a .ttf/.otf path works too")
         }
         registered.withLock { $0[font] = family }
         return family

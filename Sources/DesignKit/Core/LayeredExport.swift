@@ -81,6 +81,7 @@ public enum LayeredExport {
         case .qr: "qr"
         case .texture: "texture"
         case .group: "group"
+        case .list: "list"
         }
     }
 }

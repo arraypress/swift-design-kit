@@ -21,11 +21,27 @@ public struct PreparedDesign: Sendable {
     public let geometry: CanvasGeometry
     /// Pictures by layer: a background's finished plate (its frame's size),
     /// an image layer's picture (lifted when a cut-out), a QR code.
-    let pictures: [String: PreparedPicture]
+    var pictures: [String: PreparedPicture]
     /// The face, weight and size each text layer draws in.
     let faces: [String: ResolvedFace]
     /// Where each picture came from and how far it is enlarged.
     public let sources: [SourceNote]
+    /// The google/fonts commit the recipe was made at, when this build fetches from another.
+    public var fontCommitWas: String? = nil
+}
+
+extension PreparedDesign {
+    /// The same design with every prepared picture (and sticker outline) passed through `transform`.
+    func withPictures(_ transform: (CGImage) -> CGImage?) -> PreparedDesign {
+        var copy = self
+        copy.pictures = pictures.mapValues { picture in
+            var changed = picture
+            changed.image = transform(picture.image) ?? picture.image
+            changed.outline = picture.outline.map { transform($0) ?? $0 }
+            return changed
+        }
+        return copy
+    }
 }
 
 /// What a text layer is set in, resolved: roles through the pairing, named
@@ -40,7 +56,7 @@ struct ResolvedFace: Sendable, Equatable {
 
 /// One prepared picture.
 struct PreparedPicture: Sendable {
-    let image: CGImage
+    var image: CGImage
     /// A sticker outline behind a cut-out: the lifted subject grown by the
     /// stroke and filled, `pad` source pixels larger on every side.
     var outline: CGImage?
@@ -62,6 +78,10 @@ public struct SourceNote: Codable, Equatable, Sendable {
     public var enlargementAfter: Double
     /// Whether it was enlarged on this machine.
     public var upscaled: Bool
+    /// The upscaler that did it (`swinir@<revision>`).
+    public var upscaledWith: String? = nil
+    /// The upscaler the recipe was made with, when another enlarged it this time.
+    public var upscaledWithWas: String? = nil
 }
 
 /// Where each layer went and what was decided about it as it was drawn.

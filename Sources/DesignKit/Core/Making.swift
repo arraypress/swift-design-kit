@@ -19,9 +19,10 @@ public enum Making {
     /// `canvas` or the template's own preset.
     public static func design(from template: Template, values: [String: String],
                               canvas: CanvasSpec? = nil, pairing: String? = nil, harmony: Harmony? = nil) throws(DesignError) -> Design {
+        let (slotValues, faces) = TypeVars.split(values)
         let vars: [String: String]
         do {
-            vars = try SlotFilling.resolved(values, for: template.slots.map(\.styleSlot), style: template.name)
+            vars = try SlotFilling.resolved(slotValues, for: template.slots.map(\.styleSlot), style: template.name)
         } catch {
             throw .invalid(error.errorDescription ?? "\(error)")
         }
@@ -46,8 +47,14 @@ public enum Making {
         let chosen = pairing ?? template.pairing
         var palette = template.palette
         if let harmony { palette = PaletteSpec(harmony: harmony, fixed: palette?.fixed ?? [:]) }
+        let fonts = try TypeVars.applied(faces, to: chosen.map { Typesetting(pairing: $0.lowercased()) })
         return Design(canvas: canvas, template: template.name, vars: vars, grid: template.grid,
-                      fonts: chosen.map { Typesetting(pairing: $0.lowercased()) }, palette: palette, layers: layers)
+                      fonts: fonts, palette: palette, layers: layers)
+    }
+
+    /// Faces by hand, each family checked: a display face and a text face at the fallback pairing's weights.
+    public static func faces(display: String, text: String) throws(DesignError) -> Typesetting {
+        try TypeVars.applied(["display-font": display, "text-font": text], to: nil) ?? Typesetting()
     }
 
     /// `value` with every marker in its strings filled — except a text or
@@ -62,7 +69,7 @@ public enum Making {
             let type = object["type"] as? String
             var result: [String: Any] = [:]
             for (key, item) in object {
-                let words = key == "text" && (type == "text" || type == "qr")
+                let words = (key == "text" && (type == "text" || type == "qr")) || (key == "items" && type == "list" && item is String)
                 result[key] = fill(item, vars: vars, keepWords: words)
             }
             return result

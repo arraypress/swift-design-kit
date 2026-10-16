@@ -1,5 +1,5 @@
 {
-  "originHash" : "ba8cb3bf5092dc948747153fac1e28c9c245c99a2eeaee8813818d8a63de5575",
+  "originHash" : "b89b75cde2c0c97e915d10fdbe32bd215ba441b64e53f24c2f7b0c3ca90a7510",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-canvas-kit.git",
       "state" : {
-        "revision" : "1b865b1e448075d6cfd8e9af2f77d5026a8935d8",
-        "version" : "0.6.0"
+        "revision" : "437752b900b8cac79e295d109d78bfda2d664c65",
+        "version" : "0.7.0"
       }
     },
     {
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-object-cutout.git",
       "state" : {
-        "revision" : "f983b3761a19a44ee1b0ffb0bd5de4d016cd2af8",
-        "version" : "1.3.1"
+        "revision" : "ec6ef0047a3492deac52dfabf0fd8c7802c53d18",
+        "version" : "1.4.0"
       }
     },
     {

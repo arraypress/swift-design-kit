@@ -22,9 +22,9 @@ let package = Package(
         .library(name: "DesignKitAI", targets: ["DesignKitAI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/arraypress/swift-canvas-kit.git", from: "0.6.0"),
+        .package(url: "https://github.com/arraypress/swift-canvas-kit.git", from: "0.7.0"),
         .package(url: "https://github.com/arraypress/swift-gradient-kit.git", from: "0.3.0"),
-        .package(url: "https://github.com/arraypress/swift-object-cutout.git", from: "1.3.1"),
+        .package(url: "https://github.com/arraypress/swift-object-cutout.git", from: "1.4.0"),
         .package(url: "https://github.com/arraypress/swift-media-kit.git", from: "0.1.0"),
         .package(url: "https://github.com/arraypress/swift-qr-kit.git", from: "1.1.0"),
         .package(url: "https://github.com/arraypress/swift-document-theme.git", from: "0.1.0"),

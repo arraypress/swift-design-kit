@@ -10,6 +10,7 @@
 //  TrimBox and BleedBox, and crop marks in a slug round the bleed.
 //
 
+import CanvasKit
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -21,6 +22,8 @@ public enum OutputFormat: String, DesignChoice {
     case pdf
     /// Layered Photoshop: one layer per design layer.
     case psd
+    /// Vector: shapes and words as SVG, pictures embedded.
+    case svg
 
     /// The format a file name asks for.
     public static func of(_ url: URL) -> OutputFormat? {
@@ -29,6 +32,7 @@ public enum OutputFormat: String, DesignChoice {
         case "jpg", "jpeg": .jpeg
         case "pdf": .pdf
         case "psd": .psd
+        case "svg": .svg
         default: nil
         }
     }
@@ -39,14 +43,16 @@ public enum Exporter {
     /// The slug round a print page that holds the crop marks, millimetres.
     static let slugMM = 12.0
 
-    /// Writes `rendered` as `format`.
-    public static func write(_ rendered: Rendered, to url: URL, format: OutputFormat, quality: Double = 0.92) throws(DesignError) {
+    /// Writes `rendered` as `format`; a PDF in CMYK with `cmyk`.
+    public static func write(_ rendered: Rendered, to url: URL, format: OutputFormat, quality: Double = 0.92,
+                             cmyk: Bool = false) throws(DesignError) {
         let data: Data
         switch format {
         case .png: data = try encode(rendered.image, type: .png, quality: nil)
         case .jpeg: data = try encode(flattened(rendered.image), type: .jpeg, quality: quality)
-        case .pdf: data = try pdf(rendered)
+        case .pdf: data = try pdf(rendered, cmyk: cmyk)
         case .psd: data = try LayeredExport.psd(rendered)
+        case .svg: data = try VectorExport.svg(rendered)
         }
         do { try data.write(to: url, options: .atomic) } catch {
             throw .failed("could not write \(url.path): \(error.localizedDescription)")
@@ -93,8 +99,9 @@ public enum Exporter {
     // MARK: PDF
 
     /// The page as a PDF: points at the page's dpi (72 per pixel's inch for a screen page).
-    static func pdf(_ rendered: Rendered) throws(DesignError) -> Data {
-        let prepared = rendered.prepared
+    static func pdf(_ rendered: Rendered, cmyk: Bool = false) throws(DesignError) -> Data {
+        // CMYK: the pictures converted once, every colour drawn converted (Inks), and the profile named as the output intent.
+        let prepared = cmyk ? rendered.prepared.withPictures(PrintColor.converted) : rendered.prepared
         let geometry = prepared.geometry
         let canvas = prepared.design.canvas
         let points = 72 / (geometry.dpi ?? 72)
@@ -106,8 +113,16 @@ public enum Exporter {
         var media = CGRect(x: 0, y: 0, width: bleedBox.width + 2 * slug, height: bleedBox.height + 2 * slug)
 
         let data = NSMutableData()
+        var auxiliary: [CFString: Any] = [:]
+        if cmyk {
+            auxiliary[kCGPDFContextOutputIntents] = [[
+                kCGPDFXOutputIntentSubtype: "GTS_PDFX", kCGPDFXOutputConditionIdentifier: "Generic CMYK",
+                kCGPDFXOutputCondition: "Generic CMYK Profile", kCGPDFXDestinationOutputProfile: PrintColor.cmyk,
+            ] as [CFString: Any]]
+        }
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
-              let context = CGContext(consumer: consumer, mediaBox: &media, nil) else { throw .failed("could not start a PDF") }
+              let context = CGContext(consumer: consumer, mediaBox: &media, auxiliary.isEmpty ? nil : auxiliary as CFDictionary)
+        else { throw .failed("could not start a PDF") }
         func box(_ rect: CGRect) -> CFData {
             var value = rect
             return Data(bytes: &value, count: MemoryLayout<CGRect>.size) as CFData
@@ -125,9 +140,11 @@ public enum Exporter {
             guard let family = face.family, !Fonts.embeddable(family: family, weight: face.weight) else { return nil }
             return path
         })
-        Painter.draw(prepared, plan: rendered.plan, in: context, deviceScale: points, filter: filter)
+        Inks.$space.withValue(cmyk ? PrintColor.cmyk : nil) {
+            Painter.draw(prepared, plan: rendered.plan, in: context, deviceScale: points, filter: filter)
+        }
         context.restoreGState()
-        if marks { cropMarks(trim: trimBox, bleed: bleed, in: context) }
+        if marks { Inks.$space.withValue(cmyk ? PrintColor.cmyk : nil) { cropMarks(trim: trimBox, bleed: bleed, in: context) } }
         context.endPDFPage()
         context.closePDF()
         return data as Data

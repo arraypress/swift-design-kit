@@ -41,6 +41,8 @@ public struct Layer: Equatable, Sendable {
         /// Layers drawn together — placed inside the group's frame, then
         /// faded, blended and turned as one.
         case group([Layer])
+        /// Names or titles fitted into the frame: a line-up, a tracklist, credits.
+        case list(ListContent)
     }
 
     public init(id: String? = nil, frame: Placement = .full, opacity: Double = 1, blend: BlendMode = .normal,

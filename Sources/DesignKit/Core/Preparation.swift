@@ -29,7 +29,7 @@ public enum Preparation {
     public static func prepare(_ design: Design, services: DesignServices) async throws(DesignError) -> PreparedDesign {
         try Validation.check(design)
         let geometry = design.canvas.geometry
-        let made = try pinned(design, services: services, geometry: geometry)
+        var made = try pinned(design, services: services, geometry: geometry)
 
         var faces: [String: ResolvedFace] = [:]
         for entry in Layouter.entries(made.layers) {
@@ -37,6 +37,23 @@ public enum Preparation {
                 faces[entry.path] = try await Fonts.face(for: text, typesetting: made.fonts, folder: services.folder,
                                                          fetcher: services.fonts)
             }
+        }
+        // Lists become lines once their frames are known; the lines' faces are resolved like any text.
+        if Lists.any(made.layers) {
+            let frames = Layouter.place(made, geometry: geometry, faces: faces).frames
+            made.layers = try await Lists.expanded(made.layers, frames: frames, design: made, geometry: geometry, services: services)
+            for entry in Layouter.entries(made.layers) where faces[entry.path] == nil {
+                if case .text(let text) = entry.layer.content {
+                    faces[entry.path] = try await Fonts.face(for: text, typesetting: made.fonts, folder: services.folder,
+                                                             fetcher: services.fonts)
+                }
+            }
+        }
+        // Google faces pin the commit they came from.
+        var fontCommitWas: String?
+        if faces.values.contains(where: { $0.family.map(Fonts.isFetched) ?? false }) {
+            if let was = made.googleFonts, was != OpenFonts.commit { fontCommitWas = was }
+            made.googleFonts = OpenFonts.commit
         }
         let placed = Layouter.place(made, geometry: geometry, faces: faces)
         let textRegions = placed.fits.values.compactMap(\.linesBounds)
@@ -55,7 +72,7 @@ public enum Preparation {
                 if let note { sources.append(note) }
             case .image(let image):
                 let (picture, note) = try await picture(image, width: frame.width, height: frame.height, entry: entry,
-                                                        unit: geometry.unit, services: services)
+                                                        unit: geometry.unit, print: geometry.dpi != nil, services: services)
                 pictures[entry.path] = picture
                 sources.append(note)
             case .qr(let qr):
@@ -65,11 +82,41 @@ public enum Preparation {
                     throw .failed("a \(width)×\(height) \(texture.kind.rawValue) texture could not be made")
                 }
                 pictures[entry.path] = PreparedPicture(image: image)
-            case .text, .shape, .group:
+            case .text, .shape, .group, .list:
                 break
             }
         }
-        return PreparedDesign(design: made, geometry: geometry, pictures: pictures, faces: faces, sources: sources)
+        // The upscaler that enlarged a picture is pinned on its layer; a replay enlarged by another says so.
+        for index in sources.indices {
+            guard let pin = sources[index].upscaledWith else { continue }
+            let path = sources[index].layer
+            made.layers = Layouter.updating(made.layers, at: path) { layer in
+                switch layer.content {
+                case .background(var background):
+                    if let was = background.upscaledWith, was != pin { sources[index].upscaledWithWas = was }
+                    background.upscaledWith = pin
+                    layer.content = .background(background)
+                case .image(var image):
+                    if let was = image.upscaledWith, was != pin { sources[index].upscaledWithWas = was }
+                    image.upscaledWith = pin
+                    layer.content = .image(image)
+                default:
+                    break
+                }
+            }
+        }
+        return PreparedDesign(design: made, geometry: geometry, pictures: pictures, faces: faces, sources: sources,
+                              fontCommitWas: fontCommitWas)
+    }
+
+    /// `image` changed by a pinned edit, or as it is when there is none.
+    static func edited(_ image: CGImage, _ edit: AIEdit?, services: DesignServices) async throws(DesignError) -> CGImage {
+        guard let edit else { return image }
+        guard let generator = services.generator else {
+            throw .modelMissing("this design edits its background with words, and no image model is available here")
+        }
+        services.progress?("editing the background: \"\(edit.prompt)\" (seed \(edit.seed.map(String.init) ?? "?"))")
+        return try await generator.edited(image, edit: edit)
     }
 
     // MARK: Pinning
@@ -87,6 +134,13 @@ public enum Preparation {
                 }
                 let frame = Layout.frame(layer.frame, in: geometry.rect(layer.frame.area ?? .bleed), grid: design.grid)
                 background.fill = .ai(try generator.pinned(fill, width: Int(frame.width), height: Int(frame.height)))
+            }
+            if let edit = background.edit {
+                guard let generator = services.generator else {
+                    throw .modelMissing("this design edits its background with words, and no image model is available here")
+                }
+                let frame = Layout.frame(layer.frame, in: geometry.rect(layer.frame.area ?? .bleed), grid: design.grid)
+                background.edit = try generator.pinned(edit, width: Int(frame.width), height: Int(frame.height))
             }
             if case .file(let path) = background.grade {
                 let url = URL(fileURLWithPath: RecipePaths.usable(path, from: services.folder))
@@ -114,7 +168,7 @@ public enum Preparation {
                       geometry: CanvasGeometry, textRegions: [CGRect],
                       services: DesignServices) async throws(DesignError) -> (PreparedPicture, SourceNote?) {
         var note: SourceNote?
-        let base: CGImage
+        var base: CGImage
         switch background.fill {
         case .color(let color):
             base = try solid(width: width, height: height) { $0.setFillColor(color.cgColor); $0.fill(CGRect(x: 0, y: 0, width: width, height: height)) }
@@ -126,11 +180,12 @@ public enum Preparation {
             services.progress?("drawing gradient seed \(spec.seed)")
             base = try GradientFills.render(spec, width: width, height: height)
         case .image(let path):
-            let source = try load(path, folder: services.folder)
+            let source = try await edited(try load(path, folder: services.folder), background.edit, services: services)
             let (enlarged, upscaled, before) = try await enlarged(source, width: Double(width), height: Double(height),
-                                                                  mode: background.fit, allowed: background.upscale ?? false,
+                                                                  mode: background.fit,
+                                                                  allowed: background.upscale ?? (background.edit != nil || geometry.dpi != nil),
                                                                   services: services)
-            note = SourceNote(layer: entry.path, id: entry.layer.id, kind: "file", sourceWidth: source.width,
+            note = SourceNote(layer: entry.path, id: entry.layer.id, kind: background.edit == nil ? "file" : "edited", sourceWidth: source.width,
                               sourceHeight: source.height, enlargement: before,
                               enlargementAfter: Bitmaps.enlargement(of: enlarged, width: Double(width), height: Double(height), mode: background.fit),
                               upscaled: upscaled)
@@ -140,7 +195,7 @@ public enum Preparation {
         case .ai(let fill):
             guard let generator = services.generator else { throw .modelMissing("no image model is available here") }
             services.progress?("drawing \"\(fill.prompt)\" (seed \(fill.seed.map(String.init) ?? "?"))")
-            let made = try await generator.image(for: fill)
+            let made = try await edited(try await generator.image(for: fill), background.edit, services: services)
             let (enlarged, upscaled, before) = try await enlarged(made, width: Double(width), height: Double(height),
                                                                   mode: .fill, allowed: background.upscale ?? true,
                                                                   services: services)
@@ -153,6 +208,26 @@ public enum Preparation {
             }
             base = fitted
         }
+        // A drawn fill changed by words: the edit at the model's size, enlarged back to the frame.
+        switch background.fill {
+        case .color, .linear, .radial, .gradient:
+            if let edit = background.edit {
+                let changed = try await edited(base, edit, services: services)
+                let (enlarged, upscaled, before) = try await enlarged(changed, width: Double(width), height: Double(height), mode: .fill,
+                                                                      allowed: background.upscale ?? true, services: services)
+                note = SourceNote(layer: entry.path, id: entry.layer.id, kind: "edited", sourceWidth: changed.width,
+                                  sourceHeight: changed.height, enlargement: before,
+                                  enlargementAfter: Bitmaps.enlargement(of: enlarged, width: Double(width), height: Double(height), mode: .fill),
+                                  upscaled: upscaled)
+                guard let fitted = Bitmaps.fitted(enlarged, width: width, height: height, mode: .fill) else {
+                    throw .failed("the edited background could not be drawn")
+                }
+                base = fitted
+            }
+        case .image, .ai:
+            break
+        }
+        if note?.upscaled == true { note?.upscaledWith = services.upscaler?.pin }
         // Text regions in the plate's own CoreGraphics space.
         let plateCG = Layout.flipped(frame, height: Double(geometry.pixelHeight))
         let regions = textRegions.map { $0.offsetBy(dx: -plateCG.minX, dy: -plateCG.minY) }
@@ -170,7 +245,7 @@ public enum Preparation {
     // MARK: Pictures
 
     static func picture(_ content: ImageContent, width: Double, height: Double, entry: Layouter.Entry, unit: Double,
-                        services: DesignServices) async throws(DesignError) -> (PreparedPicture, SourceNote) {
+                        print: Bool = false, services: DesignServices) async throws(DesignError) -> (PreparedPicture, SourceNote) {
         var source = try load(content.source, folder: services.folder)
         var kind = "file"
         if content.cutout {
@@ -180,7 +255,7 @@ public enum Preparation {
             kind = "cutout"
         }
         let (image, upscaled, before) = try await enlarged(source, width: width, height: height, mode: content.fit,
-                                                           allowed: content.upscale ?? false, services: services)
+                                                           allowed: content.upscale ?? print, services: services)
         var picture = PreparedPicture(image: image)
         if content.cutout, content.mask == nil, let stroke = content.stroke, stroke.width > 0 {
             let drawnScale = Bitmaps.enlargement(of: image, width: width, height: height, mode: content.fit)
@@ -188,10 +263,11 @@ public enum Preparation {
             picture.outline = Outlines.outline(of: image, radius: pad, color: stroke.color.fixed ?? .white)
             picture.pad = pad.rounded(.up)
         }
-        let note = SourceNote(layer: entry.path, id: entry.layer.id, kind: kind, sourceWidth: source.width,
+        var note = SourceNote(layer: entry.path, id: entry.layer.id, kind: kind, sourceWidth: source.width,
                               sourceHeight: source.height, enlargement: before,
                               enlargementAfter: Bitmaps.enlargement(of: image, width: width, height: height, mode: content.fit),
                               upscaled: upscaled)
+        if upscaled { note.upscaledWith = services.upscaler?.pin }
         return (picture, note)
     }
 

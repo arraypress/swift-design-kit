@@ -8,6 +8,7 @@
 //  as fractions of a frame read from its top-left, as a design tool does.
 //
 
+import CanvasKit
 import CoreGraphics
 import Foundation
 
@@ -196,7 +197,7 @@ enum Shapes {
 
     /// A straight blend over `rect`; 0° points up, clockwise.
     static func linear(_ colors: [DesignColor], angle: Double, in rect: CGRect, context: CGContext) {
-        guard let gradient = CGGradient(colorsSpace: Bitmaps.sRGB, colors: colors.map(\.cgColor) as CFArray, locations: nil) else { return }
+        guard let gradient = CGGradient(colorsSpace: Inks.space ?? Bitmaps.sRGB, colors: colors.map(\.cgColor) as CFArray, locations: nil) else { return }
         let radians = (90 - angle) * .pi / 180
         let direction = CGVector(dx: cos(radians), dy: sin(radians))
         let reach = (abs(rect.width * direction.dx) + abs(rect.height * direction.dy)) / 2
@@ -209,7 +210,7 @@ enum Shapes {
 
     /// A blend from the centre of `rect` out to its corners.
     static func radial(_ colors: [DesignColor], in rect: CGRect, context: CGContext) {
-        guard let gradient = CGGradient(colorsSpace: Bitmaps.sRGB, colors: colors.map(\.cgColor) as CFArray, locations: nil) else { return }
+        guard let gradient = CGGradient(colorsSpace: Inks.space ?? Bitmaps.sRGB, colors: colors.map(\.cgColor) as CFArray, locations: nil) else { return }
         let center = CGPoint(x: rect.midX, y: rect.midY)
         context.drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center,
                                    endRadius: hypot(rect.width, rect.height) / 2, options: [.drawsAfterEndLocation])

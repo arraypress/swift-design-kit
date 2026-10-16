@@ -150,7 +150,7 @@ enum Planner {
         switch layer.content {
         case .background, .image: true
         case .group(let children): children.contains(where: hasArt)
-        case .text, .shape, .qr, .texture: false
+        case .text, .shape, .qr, .texture, .list: false
         }
     }
 

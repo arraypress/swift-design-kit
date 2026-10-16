@@ -20,7 +20,7 @@ enum TextStyles {
     /// colours its spans, stroke and plate name. `lettersOnly` strips
     /// everything but the letters' fill — the mask the contrast check measures.
     static func style(_ text: TextContent, face: ResolvedFace?, color: DesignColor, plan: Plan? = nil,
-                      lettersOnly: Bool = false) -> TextStyle {
+                      lettersOnly: Bool = false, words: String? = nil) -> TextStyle {
         let size = face?.size ?? text.size
         var style = TextStyle(
             fontFamily: face?.family,
@@ -36,7 +36,10 @@ enum TextStyles {
             autoShrink: text.fit == .shrink,
             minimumSize: text.minSize ?? min(size, max(8, size * 0.35)),
             maxLines: text.maxLines,
-            keepsWordsWhole: true)
+            keepsWordsWhole: true,
+            variations: text.axes,
+            features: text.features,
+            characterStyles: letters(text, words: words, plan: plan, lettersOnly: lettersOnly))
         if !lettersOnly {
             if let gradient = text.gradient { style.gradientColors = gradient.map(\.slide) }
             if let stroke = text.stroke, stroke.width > 0 {
@@ -55,6 +58,27 @@ enum TextStyles {
             style.strokeColor = .white
         }
         return style
+    }
+
+    /// The engine's character styles for a layer's `letters`, picked out of
+    /// `words` (as drawn: filled, cased, markup removed). Bare letters keep
+    /// their size and place but not their colour.
+    static func letters(_ text: TextContent, words: String?, plan: Plan?, lettersOnly: Bool) -> [CharacterStyle]? {
+        guard let letters = text.letters, !letters.isEmpty, let words else { return nil }
+        var styles: [CharacterStyle] = []
+        for letter in letters {
+            let color = lettersOnly ? nil : plan?.color(letter.color)?.slide
+            for span in LetterRanges.spans(letter, in: words) {
+                styles.append(CharacterStyle(start: span.start, length: span.length, color: color, scale: letter.size,
+                                             weight: letter.weight, baseline: letter.baseline, tracking: letter.tracking))
+            }
+        }
+        return styles.isEmpty ? nil : styles
+    }
+
+    /// The words as drawn: filled, cased, markup removed — what letter positions count in.
+    static func drawn(_ text: TextContent, vars: [String: String]) -> String {
+        Words.plain(Words.cased(Words.filled(text.text, vars: vars), text.textCase))
     }
 
     /// The vertical alignment word the engine takes.

@@ -41,7 +41,8 @@ struct TypeAndColorTests {
             #expect(Pairings.pick(pairing.display, fetchable: false, fetched: { _ in false }) != nil, "\(pairing.name) display")
             #expect(Pairings.pick(pairing.text, fetchable: false, fetched: { _ in false }) != nil, "\(pairing.name) text")
         }
-        #expect(OpenFonts.all.allSatisfy { $0.files.contains { $0.name == "OFL.txt" } && !$0.fontFiles.isEmpty })
+        #expect(OpenFonts.all.allSatisfy { $0.licenceFile != nil && !$0.fontFiles.isEmpty })
+        #expect(OpenFonts.all.filter(\.isCurated).count == OpenFonts.curated.count, "every curated family is in the index")
         #expect(OpenFonts.named("playfair-display")?.family == "Playfair Display")
         #expect(OpenFonts.named("Bebas Neue")?.url(of: OpenFonts.named("Bebas Neue")!.files[0]).absoluteString
                     == "https://raw.githubusercontent.com/google/fonts/\(OpenFonts.commit)/ofl/bebasneue/BebasNeue-Regular.ttf")

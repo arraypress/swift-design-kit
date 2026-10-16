@@ -24,7 +24,10 @@ public enum DesignEngine {
 
     /// `design` drawn and checked.
     public static func render(_ design: Design, services: DesignServices) async throws(DesignError) -> Rendered {
-        let prepared = try await Preparation.prepare(design, services: services)
+        // Off the cooperative pool: preparing blocks on the font daemon and on Vision (see DispatchExecutor).
+        let prepared = try await withTaskExecutorPreference(DispatchExecutor.shared) { () async throws(DesignError) -> PreparedDesign in
+            try await Preparation.prepare(design, services: services)
+        }
         return try await Offload.run { () throws(DesignError) -> Rendered in try finish(prepared) }
     }
 

@@ -60,7 +60,7 @@ enum Painter {
 
         func includes(_ layer: Layer) -> Bool {
             switch layer.content {
-            case .group: return true
+            case .group, .list: return true
             case .background, .image: return coversBefore == nil
             case .shape, .qr, .texture: return !artOnly
             case .text: return !artOnly && coversBefore == nil
@@ -163,6 +163,11 @@ enum Painter {
                 context.draw(picture.image, in: CGRect(x: box.midX - side / 2, y: box.midY - side / 2, width: side, height: side))
                 context.interpolationQuality = .high
             }
+        case .list(let list):
+            for (index, child) in list.lines.enumerated() {
+                draw(child, path: "\(path).\(index)", prepared: prepared, plan: plan, context: context,
+                     deviceScale: deviceScale, filter: filter)
+            }
         case .group(let children):
             for (index, child) in children.enumerated() {
                 draw(child, path: "\(path).\(index)", prepared: prepared, plan: plan, context: context,
@@ -262,7 +267,8 @@ enum Painter {
             offscreen.translateBy(x: -region.minX, y: -region.minY)
             drawText(text, path: path, prepared: prepared, plan: plan, in: box, lettersOnly: false, context: offscreen)
         }) else { return }
-        context.draw(picture, in: region)
+        // In a CMYK print file the picture is converted like every other.
+        context.draw(Inks.space != nil ? PrintColor.converted(picture) ?? picture : picture, in: region)
     }
 
     static func drawText(_ text: TextContent, path: String, prepared: PreparedDesign, plan: Plan, in box: CGRect,
@@ -271,22 +277,39 @@ enum Painter {
         let decision = plan.text[path]
         let text = decision?.move.map { Moves.applied($0, to: text) } ?? text
         let color = decision?.color ?? plan.color(text.color) ?? .white
-        var style = TextStyles.style(text, face: prepared.faces[path], color: color, plan: plan, lettersOnly: lettersOnly)
+        var style = TextStyles.style(text, face: prepared.faces[path], color: color, plan: plan, lettersOnly: lettersOnly,
+                                     words: TextStyles.drawn(text, vars: prepared.design.vars))
         let words = Words.cased(Words.filled(text.text, vars: prepared.design.vars), text.textCase)
 
         if !lettersOnly, let plate = text.plate, let fill = decision?.plate {
-            if plate.perLine {
+            if plate.perLine, text.path == nil {
                 style.linePill = fill.slide
             } else if let lines = plan.fits[path]?.linesBounds {
                 let padding = plate.padding * unit
                 context.addPath(Shapes.rounded(lines.insetBy(dx: -padding, dy: -padding), radius: plate.radius * unit))
-                context.setFillColor(fill.cgColor)
+                context.setFillColor(Inks.converted(fill.cgColor))
                 context.fillPath()
             }
         } else if text.plate?.perLine == true {
             style.linePill = nil
         }
-        TextDrawer.draw(text: words, style: style, in: box, verticalAlignment: TextStyles.vertical(text.valign),
-                        context: context, scale: unit)
+        let vertical = TextStyles.vertical(text.valign)
+        // The letters as outlines, when something is drawn from their shapes.
+        let needsOutlines = text.path != nil || (!lettersOnly && (text.extrude != nil || text.inline != nil))
+        let outlines: TextOutlines? = needsOutlines
+            ? (text.path.map { TextPaths.layout(words, style: style, path: $0, in: box, scale: unit) }
+                ?? TextDrawer.outlines(text: words, style: style, in: box, verticalAlignment: vertical, scale: unit))
+            : nil
+        if !lettersOnly, let extrude = text.extrude, let outlines {
+            LetterEffects.extrude(outlines, extrude, face: color, plan: plan, unit: unit, context: context)
+        }
+        if text.path != nil, let outlines {
+            LetterEffects.fill(outlines, style: style, lettersOnly: lettersOnly, context: context)
+        } else {
+            TextDrawer.draw(text: words, style: style, in: box, verticalAlignment: vertical, context: context, scale: unit)
+        }
+        if !lettersOnly, let inline = text.inline, let outlines {
+            LetterEffects.inline(outlines, inline, plan: plan, unit: unit, context: context)
+        }
     }
 }

@@ -109,7 +109,7 @@ struct TextTests {
         }
         do { _ = try await Fonts.family(for: "missing.ttf", folder: Probe.folder); Issue.record("not refused") } catch {}
         do { _ = try await Fonts.family(for: "Bebas Neue", folder: Probe.folder); Issue.record("fetched with no fetcher") } catch {
-            #expect(error.localizedDescription.contains("open font"))
+            #expect(error.localizedDescription.contains("Google font"))
         }
         let rendered = try await Probe.render(Probe.square(##"{"type": "background", "fill": "#000000"}, {"type": "text", "text": "Serif", "font": "source-serif", "size": 80}"##))
         #expect(rendered.report.text[0].readBack == 1)

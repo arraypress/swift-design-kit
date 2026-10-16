@@ -29,16 +29,25 @@ public struct Design: Equatable, Sendable {
     public var fonts: Typesetting?
     /// How the palette roles (`accent`, `dominant`…) are found from the art.
     public var palette: PaletteSpec?
+    /// The google/fonts commit its Google faces were fetched at — pinned when
+    /// made, so a replay on a build that fetches from another commit says so.
+    public var googleFonts: String?
+    /// The brand kit it was made with, by name — for the record only: the
+    /// brand's colours, faces and logo are written into the design itself.
+    public var brand: String?
     public var layers: [Layer]
 
     public init(canvas: CanvasSpec, template: String? = nil, vars: [String: String] = [:],
-                grid: Grid = .standard, fonts: Typesetting? = nil, palette: PaletteSpec? = nil, layers: [Layer]) {
+                grid: Grid = .standard, fonts: Typesetting? = nil, palette: PaletteSpec? = nil,
+                googleFonts: String? = nil, brand: String? = nil, layers: [Layer]) {
         self.canvas = canvas
         self.template = template
         self.vars = vars
         self.grid = grid
         self.fonts = fonts
         self.palette = palette
+        self.googleFonts = googleFonts
+        self.brand = brand
         self.layers = layers
     }
 }

@@ -89,7 +89,10 @@ extension CanvasSpec: Codable {
 
 extension Design: Codable {
 
-    enum CodingKeys: String, CodingKey, CaseIterable { case design, canvas, template, vars, grid, fonts, palette, layers }
+    enum CodingKeys: String, CodingKey, CaseIterable {
+        case design, canvas, template, vars, grid, fonts, palette, brand, layers
+        case googleFonts = "google_fonts"
+    }
 
     public init(from decoder: any Decoder) throws {
         try decoder.refuseUnknownKeys(CodingKeys.self, noun: "design")
@@ -99,7 +102,12 @@ extension Design: Codable {
                   vars: try c.value(.vars, or: [:]), grid: try c.value(.grid, or: .standard),
                   fonts: try c.decodeIfPresent(Typesetting.self, forKey: .fonts),
                   palette: try c.decodeIfPresent(PaletteSpec.self, forKey: .palette),
+                  googleFonts: try c.decodeIfPresent(String.self, forKey: .googleFonts),
+                  brand: try c.decodeIfPresent(String.self, forKey: .brand),
                   layers: try c.decode([Layer].self, forKey: .layers))
+        if let commit = googleFonts, commit.count != 40 || !commit.allSatisfy(\.isHexDigit) {
+            throw RecipeError("google_fonts is \"\(commit)\"; it is a google/fonts commit, 40 hex digits")
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -111,6 +119,8 @@ extension Design: Codable {
         if grid != .standard { try c.encode(grid, forKey: .grid) }
         try c.encodeIfPresent(fonts, forKey: .fonts)
         try c.encodeIfPresent(palette, forKey: .palette)
+        try c.encodeIfPresent(googleFonts, forKey: .googleFonts)
+        try c.encodeIfPresent(brand, forKey: .brand)
         try c.encode(layers, forKey: .layers)
     }
 }

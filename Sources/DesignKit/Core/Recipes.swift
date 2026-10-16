@@ -81,6 +81,11 @@ public enum Recipes {
                     layer.content = .text(text)
                 case .group(let children):
                     layer.content = .group(fix(children))
+                case .list(var list):
+                    if let font = list.font, ["ttf", "otf", "ttc"].contains((font as NSString).pathExtension.lowercased()) {
+                        list.font = move(font)
+                    }
+                    layer.content = .list(list)
                 case .shape, .qr, .texture:
                     break
                 }
@@ -110,6 +115,13 @@ public enum Recipes {
             guard Pairings.named(wanted) != nil else { throw RecipeError(Pairings.refusal(wanted, at: name)) }
             var changed = design
             changed.fonts = Typesetting(pairing: wanted)
+            return changed
+        }
+        // `font=Space Mono` (both faces), `display-font=…`, `text-font=…`.
+        if TypeVars.names.contains(name.lowercased()) {
+            var changed = design
+            do { changed.fonts = try TypeVars.applied([name.lowercased(): pair.value.trimmingCharacters(in: .whitespaces)], to: design.fonts) }
+            catch { throw RecipeError(error.errorDescription ?? "\(error)") }
             return changed
         }
         let (path, kind) = try SetPaths.resolve(name, value: pair.value, in: design)

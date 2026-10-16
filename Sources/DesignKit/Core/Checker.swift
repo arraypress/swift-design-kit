@@ -41,6 +41,12 @@ public enum Checker {
         var measures: [TextMeasure] = []
 
         for entry in Layouter.entries(prepared.design.layers) {
+            if case .list(let list) = entry.layer.content, list.fitted == false {
+                let name = entry.layer.id.map { "\"\($0)\"" } ?? "layer \(entry.path)"
+                findings.append(Finding(check: "list", level: .fail, layer: entry.path, id: entry.layer.id,
+                                        message: "\(name) does not fit its frame even at \(Int((list.minScale * 100).rounded()))% of its sizes: some items run past it",
+                                        fix: "fewer items, more columns, a larger frame, or a lower min_scale"))
+            }
             guard case .text(let text) = entry.layer.content else { continue }
             let path = entry.path, id = entry.layer.id
             let filled = Words.filled(text.text, vars: prepared.design.vars)
@@ -118,7 +124,13 @@ public enum Checker {
                 let normalized = CGRect(x: region.minX / Double(geometry.pixelWidth), y: region.minY / Double(geometry.pixelHeight),
                                         width: region.width / Double(geometry.pixelWidth), height: region.height / Double(geometry.pixelHeight))
                 read = ReadBack.measure(words, in: composite, rect: normalized)
-                if let read, read < 1 {
+                if let read, read < 1, text.path != nil {
+                    // Recognition reads straight lines: measured 100% on gentle arcs and waves, a third round a
+                    // circle or a deep arc — a warning, since the words may read fine to a person.
+                    findings.append(Finding(check: "read-back", level: .warn, layer: path, id: id,
+                                            message: "text recognition reads \(Int((read * 100).rounded()))% of \(name)'s words back (curved words read back worse: recognition reads straight lines)",
+                                            fix: "a gentler bend, if the words must survive being read by a machine"))
+                } else if let read, read < 1 {
                     findings.append(Finding(check: "read-back", level: read < 0.5 ? .fail : .warn, layer: path, id: id,
                                             message: "text recognition reads \(Int((read * 100).rounded()))% of \(name)'s words back",
                                             fix: read < 0.5 ? "more contrast, a plainer face, less tracking, or a larger size" : nil))
@@ -138,6 +150,29 @@ public enum Checker {
                     findings.append(Finding(check: "print-size", level: pt < 6 ? .fail : .warn, layer: path, id: id,
                                             message: "\(name) prints at \(String(format: "%.1f", pt)) pt; \(pt < 6 ? "too small to read" : "small for print (8 pt and up reads)")",
                                             fix: "a larger size or min_size"))
+                }
+            }
+
+            // Features and axes the face does not have: CoreText ignores them without a word.
+            if text.features != nil || text.axes != nil {
+                let face = prepared.faces[path]
+                let font = FontResolver.font(family: face?.family, weight: face?.weight ?? "bold", size: 40)
+                if let features = text.features {
+                    let unused = TypeFeatures.ineffective(features, text: words, font: font)
+                    if !unused.isEmpty {
+                        findings.append(Finding(check: "features", level: .warn, layer: path, id: id,
+                                                message: "\(unused.joined(separator: ", ")) change\(unused.count == 1 ? "s" : "") nothing in \(face?.family ?? "the system face") for these words — the face does not have \(unused.count == 1 ? "it" : "them")",
+                                                fix: "a face with the feature (`design fonts --google NAME` shows a family's), or leave it out"))
+                    }
+                }
+                if let axes = text.axes {
+                    let has = Set(FontResolver.axes(of: font).map(\.tag))
+                    let missing = axes.keys.sorted().filter { !has.contains($0) }
+                    if !missing.isEmpty {
+                        findings.append(Finding(check: "axes", level: .warn, layer: path, id: id,
+                                                message: "\(face?.family ?? "the system face") has no \(missing.joined(separator: ", ")) axis\(missing.count == 1 ? "" : "es"); \(has.isEmpty ? "it is not a variable font" : "it has \(has.sorted().joined(separator: ", "))")",
+                                                fix: "a variable face (Google families list their axes), or weight instead of an axis"))
+                    }
                 }
             }
 
@@ -193,6 +228,11 @@ public enum Checker {
             findings.append(Finding(check: "embedding", level: .warn,
                                     message: "\(family)'s licence bits do not allow embedding it: a PDF draws its words as pictures, not text",
                                     fix: "another face, if the PDF's words must stay text"))
+        }
+        if let was = prepared.fontCommitWas {
+            findings.append(Finding(check: "fonts", level: .warn,
+                                    message: "the recipe's Google faces were fetched at google/fonts \(was.prefix(12)); this build fetches them at \(OpenFonts.commit.prefix(12)), and a face may have changed since",
+                                    fix: "the design from the build that made it, or accept the faces as drawn now"))
         }
         findings.sort { $0.level < $1.level }
         return CheckReport(findings: findings, text: measures, sources: prepared.sources, palette: plan.palette,
@@ -282,7 +322,11 @@ public enum Checker {
 
     /// Pictures drawn larger than their pixels.
     static func resolution(_ prepared: PreparedDesign) -> [Finding] {
-        prepared.sources.compactMap { note in
+        prepared.sources.compactMap { note -> Finding? in
+            guard let was = note.upscaledWithWas else { return nil }
+            return Finding(check: "upscaler", level: .warn, layer: note.layer, id: note.id,
+                           message: "the recipe was enlarged by \(was); this machine enlarged it with \(note.upscaledWith ?? "another"), so its fine detail may differ")
+        } + prepared.sources.compactMap { note in
             guard note.enlargementAfter > Preparation.upscaleThreshold else { return nil }
             let level: Finding.Level = note.enlargementAfter > 2.5 && prepared.geometry.dpi != nil ? .fail : .warn
             let name = note.id.map { "\"\($0)\"" } ?? "layer \(note.layer)"

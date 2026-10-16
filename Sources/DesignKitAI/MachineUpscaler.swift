@@ -19,6 +19,9 @@ public actor MachineUpscaler: ImageUpscaling {
 
     public nonisolated let factor = 4
 
+    /// SwinIR at the commit `upscale` installs it from.
+    public nonisolated var pin: String { "\(UpscaleModel.swinir.rawValue)@\(UpscaleModel.swinir.revision)" }
+
     private let modelURL: URL
     private var runner: (any Upscaler)?
 

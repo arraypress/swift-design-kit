@@ -33,9 +33,31 @@ struct FakeGenerator: ImageGenerating {
     }
 }
 
+extension FakeGenerator {
+    func pinned(_ edit: AIEdit, width: Int, height: Int) throws(DesignError) -> AIEdit {
+        var edit = edit
+        edit.model = edit.model ?? "fake"
+        edit.revision = "test"
+        edit.aspect = edit.aspect ?? "1:1"
+        edit.seed = edit.seed ?? 11
+        return edit
+    }
+
+    /// The picture's colours inverted, at 256² — an edit anyone can see.
+    func edited(_ image: CGImage, edit: AIEdit) async throws(DesignError) -> CGImage {
+        Bitmaps.image(width: 256, height: 256) { context in
+            context.draw(image, in: CGRect(x: 0, y: 0, width: 256, height: 256))
+            context.setBlendMode(.difference)
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 256, height: 256))
+        }!
+    }
+}
+
 /// Doubles a picture's size by repeating pixels — enough to prove the path.
 struct FakeUpscaler: ImageUpscaling {
     let factor = 4
+    let pin = "fake@test"
     func upscale(_ image: CGImage) async throws(DesignError) -> CGImage {
         Bitmaps.image(width: image.width * 4, height: image.height * 4) { context in
             context.interpolationQuality = .none

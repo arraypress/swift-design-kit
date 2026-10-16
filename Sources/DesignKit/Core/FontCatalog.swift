@@ -29,22 +29,27 @@ public enum FontCatalog {
                                    mood: entry.name == "jetbrains-mono" ? "technical" : entry.name == "inter" ? "clean, neutral" : "classic, readable",
                                    embeddable: true, licence: "OFL-1.1", fetched: nil))
         }
-        for font in OpenFonts.all where !installedNames.contains(font.family.lowercased()) {
-            let styles = font.fontFiles.map { file -> String in
-                var style = (file.name as NSString).deletingPathExtension
-                    .replacingOccurrences(of: font.family.replacingOccurrences(of: " ", with: ""), with: "")
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-                if let axes = style.firstIndex(of: "[") {
-                    style = String(style[..<axes])
-                    style = style.isEmpty ? "variable weight" : "\(style), variable weight"
-                }
-                return style.isEmpty ? "Regular" : style
-            }
-            rows.append(FontFamily(family: font.family, name: font.family, source: "open", styles: styles, category: font.category,
-                                   mood: FontTraits.mood(category: font.category, styles: styles, family: font.family),
-                                   embeddable: true, licence: font.licence, fetched: fetcher?.fetched(font) != nil))
+        for font in OpenFonts.all where font.isCurated && !installedNames.contains(font.family.lowercased()) {
+            rows.append(row(font, fetcher: fetcher))
         }
         return rows
+    }
+
+    /// Every Google Fonts family whose name contains `query` (all ~2,000
+    /// with none), closest first — what `design fonts --google` lists.
+    public static func google(_ query: String?, fetcher: (any FontFetching)? = nil) -> [FontFamily] {
+        OpenFonts.search(query ?? "").map { row($0, fetcher: fetcher) }
+    }
+
+    /// An open font as a listing row.
+    static func row(_ font: OpenFont, fetcher: (any FontFetching)?) -> FontFamily {
+        let styles = font.styles
+        return FontFamily(family: font.family, name: font.family, source: "open", styles: styles, category: font.category,
+                          // A weight axis is every weight, not one style.
+                          mood: FontTraits.mood(category: font.category, styles: font.axes.contains { $0.tag == "wght" } ? ["Regular", "Bold"] : styles,
+                                                family: font.family),
+                          embeddable: nil, licence: font.licence, fetched: fetcher?.fetched(font) != nil,
+                          axes: font.axes.isEmpty ? nil : font.axes.map { "\($0.tag) \(Decoding.text($0.minimum))–\(Decoding.text($0.maximum))" })
     }
 
     /// Every family installed on this Mac.

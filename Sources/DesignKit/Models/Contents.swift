@@ -34,12 +34,17 @@ public struct BackgroundContent: Equatable, Sendable {
     /// Darkened corners, `0…1`.
     public var vignette: Double
     /// Enlarge a picture smaller than its frame on this machine (SwinIR ×4)
-    /// before drawing it. `nil` means yes for a made picture, no for a file.
+    /// before drawing it. `nil` means yes for a made or edited picture and on
+    /// a print page, no for a file on screen.
     public var upscale: Bool?
+    /// The picture changed in place by words, on this machine.
+    public var edit: AIEdit?
+    /// The upscaler that enlarged it (`swinir@<revision>`), written when made.
+    public var upscaledWith: String?
 
     public init(fill: Fill, fit: FitMode = .fill, blur: Double = 0, darken: Double = 0, scrim: Scrim? = nil,
                 grade: LookReference? = nil, duotone: [DesignColor]? = nil, gradientMap: [DesignColor]? = nil,
-                grain: Double = 0, vignette: Double = 0, upscale: Bool? = nil) {
+                grain: Double = 0, vignette: Double = 0, upscale: Bool? = nil, edit: AIEdit? = nil, upscaledWith: String? = nil) {
         self.fill = fill
         self.fit = fit
         self.blur = blur
@@ -51,6 +56,8 @@ public struct BackgroundContent: Equatable, Sendable {
         self.grain = grain
         self.vignette = vignette
         self.upscale = upscale
+        self.edit = edit
+        self.upscaledWith = upscaledWith
     }
 }
 
@@ -98,13 +105,26 @@ public struct TextContent: Equatable, Sendable {
     public var plate: Plate?
     /// What the words keep clear of, moving to another anchor when they would cover it.
     public var avoid: [Avoid]
+    /// Variable-font axes by tag (`wght`, `wdth`, `slnt`, `opsz`, or the font's own).
+    public var axes: [String: Double]?
+    /// OpenType features by tag, 1 on and 0 off (`smcp`, `liga`, `tnum`, `onum`, `ss01`).
+    public var features: [String: Int]?
+    /// Styling for some of the letters.
+    public var letters: [LetterStyle]?
+    /// Set along an arc, a circle or a wave instead of across the frame (one line).
+    public var path: TextPath?
+    /// Depth behind the letters.
+    public var extrude: Extrude?
+    /// A line inside the letters.
+    public var inline: Inline?
 
     public init(text: String, font: String? = nil, weight: String? = nil, size: Double = 80, step: SizeStep? = nil,
                 minSize: Double? = nil, maxLines: Int? = nil, fit: TextFitMode = .shrink, tracking: Double = 0,
                 lineHeight: Double = 1, textCase: TextCase = .none, align: TextAlign = .center,
                 valign: VerticalAlign = .middle, color: Paint = .color(.white), accent: Paint? = nil,
                 muted: Paint? = nil, gradient: [DesignColor]? = nil, stroke: Stroke? = nil,
-                plate: Plate? = nil, avoid: [Avoid] = []) {
+                plate: Plate? = nil, avoid: [Avoid] = [], axes: [String: Double]? = nil, features: [String: Int]? = nil,
+                letters: [LetterStyle]? = nil, path: TextPath? = nil, extrude: Extrude? = nil, inline: Inline? = nil) {
         self.text = text
         self.font = font
         self.weight = weight
@@ -125,6 +145,12 @@ public struct TextContent: Equatable, Sendable {
         self.stroke = stroke
         self.plate = plate
         self.avoid = avoid
+        self.axes = axes
+        self.features = features
+        self.letters = letters
+        self.path = path
+        self.extrude = extrude
+        self.inline = inline
     }
 }
 
@@ -142,11 +168,14 @@ public struct ImageContent: Equatable, Sendable {
     public var focus: [Double]?
     public var mask: Mask?
     public var stroke: Stroke?
-    /// Enlarge on this machine when smaller than drawn. `nil` means no.
+    /// Enlarge on this machine when smaller than drawn. `nil` means yes on a
+    /// print page (up to print resolution), no on screen.
     public var upscale: Bool?
+    /// The upscaler that enlarged it (`swinir@<revision>`), written when made.
+    public var upscaledWith: String?
 
     public init(source: String, cutout: Bool = false, edge: CutoutEdge = .crisp, choke: Double = 0, fit: FitMode = .fill,
-                focus: [Double]? = nil, mask: Mask? = nil, stroke: Stroke? = nil, upscale: Bool? = nil) {
+                focus: [Double]? = nil, mask: Mask? = nil, stroke: Stroke? = nil, upscale: Bool? = nil, upscaledWith: String? = nil) {
         self.source = source
         self.cutout = cutout
         self.edge = edge
@@ -156,6 +185,7 @@ public struct ImageContent: Equatable, Sendable {
         self.mask = mask
         self.stroke = stroke
         self.upscale = upscale
+        self.upscaledWith = upscaledWith
     }
 }
 

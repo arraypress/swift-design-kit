@@ -164,6 +164,53 @@ public actor MachineImages: ImageGenerating {
         return picture
     }
 
+    // MARK: Editing
+
+    public nonisolated func pinned(_ edit: AIEdit, width: Int, height: Int) throws(DesignError) -> AIEdit {
+        var edit = edit
+        let model = try Self.model(edit.model)
+        guard model.supportsEditing else { throw .invalid("\(model.rawValue) cannot edit pictures; flux2-klein-4b can") }
+        // The shape and model pinned as for a made picture.
+        let fill = try pinned(AIFill(prompt: edit.prompt, model: model.rawValue, seed: edit.seed, aspect: edit.aspect, steps: edit.steps),
+                              width: width, height: height)
+        edit.model = fill.model
+        edit.revision = fill.revision
+        edit.aspect = fill.aspect
+        edit.seed = fill.seed
+        return edit
+    }
+
+    public func edited(_ image: CGImage, edit: AIEdit) async throws(DesignError) -> CGImage {
+        let model = try Self.model(edit.model)
+        guard let aspectName = edit.aspect, let aspect = ImageAspect(rawValue: aspectName), let seed = edit.seed else {
+            throw .invalid("the edit is not pinned (model, aspect, seed); make the design again")
+        }
+        // The source's pixels are part of the pin.
+        let source = (try? Exporter.png(image)) ?? Data()
+        let key = Self.cacheKey(AIFill(prompt: "edit\u{1F}\(edit.prompt)\u{1F}\(edit.strength)", model: edit.model, revision: edit.revision,
+                                       seed: seed, aspect: aspectName, steps: edit.steps,
+                                       style: SHA256.hash(data: source).map { String(format: "%02x", $0) }.joined()))
+        if let cached = cachedImage(key) { return cached }
+        let bundle = Self.bundle(model, aspect: aspect, support: support)
+        let generator: ImageGenerator
+        if let warm = loaded[bundle.path] {
+            generator = warm
+        } else {
+            do { generator = try await ImageGenerator(bundle: bundle) } catch {
+                throw .failed("\(model.rawValue) (\(aspectName)) could not be loaded from \(bundle.path): \(error)")
+            }
+            loaded = [bundle.path: generator]
+        }
+        let result: GeneratedImage
+        do {
+            result = try await generator.edit(image, edit.prompt, seed: seed, strength: Float(edit.strength), steps: edit.steps)
+        } catch {
+            throw .failed("the background could not be edited: \(error)")
+        }
+        store(result.image, key: key)
+        return result.image
+    }
+
     /// The pin as a file name: what is drawn depends on nothing else.
     static func cacheKey(_ fill: AIFill) -> String {
         let text = [fill.model ?? "", fill.revision ?? "", fill.aspect ?? "", fill.seed.map(String.init) ?? "",
