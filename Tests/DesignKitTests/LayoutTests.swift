@@ -83,6 +83,11 @@ struct LayoutTests {
         #expect(placed.frames["1"] == design.canvas.geometry.safe)
     }
 
+    /// What a layer avoids as the planner sees it: rectangles at full size on a 400 px mask.
+    static func obstacles(_ rects: [CGRect], mask: [Bool]? = nil) -> Obstacles {
+        Obstacles(mask: mask, rects: rects, width: 400, height: 400, scale: 1)
+    }
+
     @Test func anAvoidingLayerMovesOffWhatItAvoids() throws {
         let design = try Probe.square(##"{"type": "text", "id": "t", "text": "Over the face", "size": 50, "frame": {"anchor": "top", "height": 0.3}, "avoid": ["faces"]}"##)
         let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], families: [:], sources: [])
@@ -90,9 +95,63 @@ struct LayoutTests {
         let plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
         let face = CGRect(x: 0, y: 0, width: 400, height: 150)   // a face across the top
         let entry = Layouter.entries(design.layers)[0]
-        let moved = try #require(Planner.move(entry, obstacles: [face], prepared: prepared, anchors: [:], plan: plan))
-        #expect(moved.anchor == .bottom)
-        #expect(Planner.move(entry, obstacles: [CGRect(x: 0, y: 300, width: 400, height: 100)], prepared: prepared, anchors: [:], plan: plan) == nil,
-                "clear already: stays put")
+        let moved = try #require(Planner.move(entry, obstacles: Self.obstacles([face]), prepared: prepared, moves: [:], plan: plan))
+        #expect(moved.move?.anchor == .bottom && moved.move?.width == 1)
+        #expect(Planner.move(entry, obstacles: Self.obstacles([CGRect(x: 0, y: 300, width: 400, height: 100)]), prepared: prepared,
+                             moves: [:], plan: plan) == nil, "clear already: stays put")
+    }
+
+    @Test func aMovedTitleTakesItsAlignmentWithIt() throws {
+        // Full width, set left at top-left: only right-aligning it moves its lines.
+        let design = try Probe.square(##"{"type": "text", "id": "t", "text": "Slow", "size": 60, "align": "left", "valign": "top", "frame": {"anchor": "top-left", "height": 0.5}, "avoid": ["subject"]}"##)
+        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], families: [:], sources: [])
+        let placed = Layouter.place(design, geometry: prepared.geometry, families: [:])
+        let plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
+        let entry = Layouter.entries(design.layers)[0]
+        // Something in the top-left quarter, and down the whole bottom half.
+        let moved = try #require(Planner.move(entry, obstacles: Self.obstacles([CGRect(x: 0, y: 0, width: 200, height: 200),
+                                                                                  CGRect(x: 0, y: 200, width: 400, height: 200)]),
+                                              prepared: prepared, moves: [:], plan: plan))
+        let move = try #require(moved.move)
+        #expect(move.anchor == .topRight && move.align == .right && move.valign == .top)
+        let after = Layouter.place(design, geometry: prepared.geometry, families: [:], moves: ["0": move])
+        let lines = try #require(after.fits["0"]?.linesBounds)
+        #expect(lines.minX > 200, "the words went right with the anchor: \(lines)")
+    }
+
+    @Test func aFrameIsNarrowedOnlyWhenThatClears() throws {
+        // A subject down the middle, the words across the top: no anchor clears
+        // at full width; a frame a third as wide, at the left, does.
+        let design = try Probe.square(##"{"type": "text", "id": "t", "text": "Slow Signal", "size": 70, "min_size": 10, "max_lines": 2, "align": "left", "valign": "top", "frame": {"anchor": "top-left", "height": 0.5}, "avoid": ["subject"]}"##)
+        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], families: [:], sources: [])
+        let placed = Layouter.place(design, geometry: prepared.geometry, families: [:])
+        let plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
+        let entry = Layouter.entries(design.layers)[0]
+        var mask = [Bool](repeating: false, count: 400 * 400)
+        for y in 0..<400 { for x in 160..<400 { mask[y * 400 + x] = true } }
+        let moved = try #require(Planner.move(entry, obstacles: Self.obstacles([], mask: mask), prepared: prepared, moves: [:], plan: plan))
+        let move = try #require(moved.move, Comment(rawValue: moved.note))
+        #expect(move.anchor == .topLeft && move.width < 1, "\(move)")
+        let after = Layouter.place(design, geometry: prepared.geometry, families: [:], moves: ["0": move])
+        let lines = try #require(after.fits["0"]?.linesBounds)
+        #expect(lines.maxX <= 160, "the words stay left of the subject: \(lines)")
+        #expect(moved.note.hasPrefix("narrowed at top-left to"), "\(moved.note)")
+
+        // Covering everything: nothing clears, nothing narrows, and the note says so.
+        let everywhere = Self.obstacles([CGRect(x: 0, y: 0, width: 400, height: 400)])
+        let stuck = try #require(Planner.move(entry, obstacles: everywhere, prepared: prepared, moves: [:], plan: plan))
+        #expect(stuck.move == nil && stuck.note.contains("no placement clears it"))
+    }
+
+    @Test func obstaclesCountEachPixelOnce() {
+        var mask = [Bool](repeating: false, count: 400 * 400)
+        for y in 0..<100 { for x in 0..<100 { mask[y * 400 + x] = true } }
+        // A face inside the subject adds nothing; one beside it adds its own area.
+        let inside = Self.obstacles([CGRect(x: 10, y: 10, width: 50, height: 50)], mask: mask)
+        #expect(inside.covered(CGRect(x: 0, y: 0, width: 400, height: 400)) == 100 * 100)
+        let beside = Self.obstacles([CGRect(x: 200, y: 0, width: 50, height: 50)], mask: mask)
+        #expect(beside.covered(CGRect(x: 0, y: 0, width: 400, height: 400)) == 100 * 100 + 50 * 50)
+        #expect(abs(inside.share(of: [CGRect(x: 0, y: 0, width: 200, height: 100)]) - 0.5) < 1e-9)
+        #expect(Self.obstacles([]).isEmpty)
     }
 }

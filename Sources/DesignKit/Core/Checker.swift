@@ -24,7 +24,11 @@ public enum Checker {
     /// Ink this far past an edge (pixels at full size) counts.
     static let tolerance = 2.0
 
+    /// More than this share of a text layer's letters on the subject is reported.
+    static let subjectLimit = 0.02
+
     static func check(_ prepared: PreparedDesign, plan: Plan, composite: CGImage?) -> CheckReport {
+        var plan = plan
         let geometry = prepared.geometry
         let scale = Planner.measuringScale(geometry)
         var findings: [Finding] = []
@@ -79,8 +83,8 @@ public enum Checker {
             let sizeUnits = (fit?.pointSize ?? text.size * geometry.unit) / geometry.unit
             let needed = sizeUnits >= largeTextUnits ? Contrast.largeTextMinimum : Contrast.normalTextMinimum
             var ratio: Double?
-            if let composite, let letters = render(prepared, plan: plan, scale: scale,
-                                                    filter: Painter.Filter(only: path, lettersOnly: true)),
+            let letters = render(prepared, plan: plan, scale: scale, filter: Painter.Filter(only: path, lettersOnly: true))
+            if let composite, let letters,
                let window = window(around: ink ?? plan.frames[path], scale: scale, geometry: geometry, in: composite),
                let compositeCrop = composite.cropping(to: window), let lettersCrop = letters.cropping(to: window) {
                 // Measured in a window round the words: the same pixels, a fraction of the work.
@@ -130,8 +134,23 @@ public enum Checker {
                 }
             }
 
-            if let note = decision?.note, decision?.movedTo == nil, note.contains("covered") {
-                findings.append(Finding(check: "faces", level: .warn, layer: path, id: id, message: "\(name): \(note)"))
+            if let note = decision?.note, decision?.move == nil, note.contains("no placement clears it") {
+                findings.append(Finding(check: "avoid", level: .warn, layer: path, id: id, message: "\(name) \(note)",
+                                        fix: "a smaller size or frame, or other art"))
+            }
+
+            // The subject: how much of the letters lie on it.
+            let subject = onSubject(path, letters: letters, prepared: prepared, plan: &plan)
+            if case .measured(let share) = subject, share > subjectLimit {
+                let avoiding = text.avoid.contains(.subject)
+                findings.append(Finding(check: "subject", level: .warn, layer: path, id: id,
+                                        message: "\(Int((share * 100).rounded()))% of \(name)'s letters lie on the picture's subject",
+                                        fix: avoiding ? "a smaller size or a narrower frame, or other art"
+                                                      : "\"avoid\": [\"subject\"] on the layer moves it clear"))
+            } else if case .notMeasured = subject {
+                findings.append(Finding(check: "subject", level: .warn, layer: path, id: id,
+                                        message: "\(name) was not measured against the subject: Vision could not run (the Neural Engine was busy)",
+                                        fix: "run `design check` again when no image model is generating"))
             }
 
             measures.append(TextMeasure(
@@ -141,14 +160,48 @@ public enum Checker {
                 ink: ink.map { [$0.minX, $0.minY, $0.width, $0.height].map { $0.rounded() } },
                 insideSafe: insideSafe, insideTrim: insideTrim, contrast: ratio.map { ($0 * 100).rounded() / 100 },
                 contrastNeeded: needed, readBack: read.map { ($0 * 100).rounded() / 100 },
-                color: decision?.color.hex ?? "", plate: decision?.plate?.hex, movedTo: decision?.movedTo?.rawValue,
-                note: decision?.note))
+                onSubject: subject.share, color: decision?.color.hex ?? "", plate: decision?.plate?.hex,
+                movedTo: decision?.move?.anchor.rawValue, note: decision?.note))
         }
 
         findings += resolution(prepared)
         findings += page(prepared, composite: composite)
         findings.sort { $0.level < $1.level }
         return CheckReport(findings: findings, text: measures, sources: prepared.sources)
+    }
+
+    /// A text layer's letters against the subject of the art under it.
+    enum SubjectOverlap {
+        /// No art under it, or no subject in the art, or no letters.
+        case none
+        /// The share of its letters' pixels on the subject.
+        case measured(Double)
+        /// Vision could not run.
+        case notMeasured
+
+        /// The share for the report: `0` when there is nothing to lie on, `nil` when not measured.
+        var share: Double? {
+            switch self {
+            case .none: 0
+            case .measured(let share): (share * 1000).rounded() / 1000
+            case .notMeasured: nil
+            }
+        }
+    }
+
+    /// How much of a text layer's letters (`letters`: the layer drawn as bare
+    /// letters at the measuring scale) lie on the subject of the art under it
+    /// — the same subject placement avoided, looked for now if it was not.
+    static func onSubject(_ path: String, letters: CGImage?, prepared: PreparedDesign, plan: inout Plan) -> SubjectOverlap {
+        guard let index = Int(path.split(separator: ".").first ?? ""), let letters else { return .none }
+        let look = Planner.look(at: index, for: [.subject], prepared: prepared, plan: &plan)
+        switch look.subject {
+        case .found(let mask)?:
+            let seen = Planner.visible(mask, under: path, prepared: prepared, plan: plan)
+            return Subjects.share(of: Pixels.mask(of: letters), on: seen).map { .measured($0) } ?? .none
+        case .failed?: return .notMeasured
+        case .nothing?, nil: return .none
+        }
     }
 
     /// Pictures drawn larger than their pixels.

@@ -31,13 +31,39 @@ enum Painter {
         var lettersOnly = false
         /// Top-level layers before this index only.
         var before: Int?
+        /// The art alone: backgrounds and pictures, no words, shapes or codes
+        /// — what a subject is looked for in.
+        var artOnly = false
+        /// Shapes and codes alone, drawn before the layer at this path —
+        /// what hides the art from words laid over it (a label strip, a
+        /// starburst).
+        var coversBefore: String?
 
         static let all = Filter()
 
         func includes(_ path: String) -> Bool {
+            if let coversBefore, !Painter.drawn(path, before: coversBefore) { return false }
             guard let only else { return true }
             return path == only || only.hasPrefix(path + ".")
         }
+
+        func includes(_ layer: Layer) -> Bool {
+            switch layer.content {
+            case .group: return true
+            case .background, .image: return coversBefore == nil
+            case .shape, .qr: return !artOnly
+            case .text: return !artOnly && coversBefore == nil
+            }
+        }
+    }
+
+    /// Whether the layer at `path` is drawn before the one at `other` (a
+    /// group counts as drawn before its children, so they can be drawn).
+    static func drawn(_ path: String, before other: String) -> Bool {
+        if other.hasPrefix(path + ".") { return true }
+        let a = path.split(separator: ".").compactMap { Int($0) }, b = other.split(separator: ".").compactMap { Int($0) }
+        for (x, y) in zip(a, b) where x != y { return x < y }
+        return false
     }
 
     static func draw(_ prepared: PreparedDesign, plan: Plan, in context: CGContext, deviceScale: Double,
@@ -51,7 +77,7 @@ enum Painter {
 
     static func draw(_ layer: Layer, path: String, prepared: PreparedDesign, plan: Plan, context: CGContext,
                      deviceScale: Double, filter: Filter) {
-        guard filter.includes(path), let frame = plan.frames[path] else { return }
+        guard filter.includes(path), filter.includes(layer), let frame = plan.frames[path] else { return }
         let height = Double(prepared.geometry.pixelHeight)
         let box = Layout.flipped(frame, height: height)
         let unit = prepared.geometry.unit
@@ -185,6 +211,7 @@ enum Painter {
                          lettersOnly: Bool, context: CGContext) {
         let unit = prepared.geometry.unit
         let decision = plan.text[path]
+        let text = decision?.move.map { Moves.applied($0, to: text) } ?? text
         let color = decision?.color ?? { if case .color(let c) = text.color { return c }; return .white }()
         var style = TextStyles.style(text, family: prepared.families[path], color: color, lettersOnly: lettersOnly)
         let words = Words.cased(Words.filled(text.text, vars: prepared.design.vars), text.textCase)

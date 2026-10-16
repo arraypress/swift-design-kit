@@ -62,6 +62,8 @@ public struct Plan: Sendable {
     public var fits: [String: TextFit]
     /// Each text layer's ink colour and plate colour, as decided.
     public var text: [String: TextDecision]
+    /// The art under text layers, keyed by which art layers it is.
+    var art: [String: ArtLook] = [:]
 }
 
 /// What was decided for one text layer.
@@ -69,8 +71,27 @@ public struct TextDecision: Codable, Equatable, Sendable {
     public var color: DesignColor
     /// The plate's colour, when one is drawn.
     public var plate: DesignColor?
-    /// The anchor used, when `avoid` moved the words from the one declared.
-    public var movedTo: Anchor?
+    /// Where `avoid` moved the words, when it did.
+    public var move: TextMove?
     /// Why it moved, or how much of what it avoids it still covers.
     public var note: String?
+}
+
+/// Where `avoid` put a text layer instead of where it was declared: another
+/// anchor (the alignment that hugged the old one follows it), and a frame
+/// narrowed to a share of its width when only that clears.
+public struct TextMove: Codable, Equatable, Sendable {
+    public var anchor: Anchor
+    /// The share of the declared frame's width (`1`: unchanged).
+    public var width: Double
+    public var align: TextAlign
+    public var valign: VerticalAlign
+}
+
+/// The art under a text layer, looked at once: faces (measuring pixels,
+/// top-left) and the lifted subject — kept so the checks measure against
+/// what placement avoided.
+struct ArtLook: Sendable {
+    var faces: [CGRect]?
+    var subject: Subjects.Search?
 }

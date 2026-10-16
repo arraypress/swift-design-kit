@@ -38,7 +38,7 @@ public struct Finding: Codable, Equatable, Sendable {
     }
 
     /// `contrast`, `read-back`, `clipped`, `safe-area`, `fit`, `print-size`,
-    /// `resolution`, `bleed`, `platform`, `unfilled`, `faces`.
+    /// `resolution`, `bleed`, `platform`, `unfilled`, `avoid`, `subject`.
     public var check: String
     public var level: Level
     /// The layer's path and id, when it is about one.
@@ -82,6 +82,10 @@ public struct TextMeasure: Codable, Equatable, Sendable {
     /// Share of the words on-device text recognition reads back; `nil` when
     /// recognition could not run.
     public var readBack: Double?
+    /// Share of the letters' pixels on the subject of the art under them
+    /// (Vision's foreground mask); `0` when there is no subject, `nil` when
+    /// Vision could not run.
+    public var onSubject: Double?
     public var color: String
     public var plate: String?
     public var movedTo: String?

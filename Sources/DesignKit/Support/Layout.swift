@@ -15,9 +15,8 @@ enum Layout {
     /// The frame `placement` gives inside `area`: size as fractions of the
     /// area, the anchored edges held `margin` in, a column span when given,
     /// under or over `reference` when given, then the nudge.
-    static func frame(_ placement: Placement, in area: CGRect, grid: Grid, anchor: Anchor? = nil,
-                      reference: CGRect? = nil) -> CGRect {
-        let anchor = anchor ?? placement.anchor
+    static func frame(_ placement: Placement, in area: CGRect, grid: Grid, reference: CGRect? = nil) -> CGRect {
+        let anchor = placement.anchor
         var width = placement.width * area.width
         var height = placement.height * area.height
         if let aspect = placement.aspect { height = width / aspect }

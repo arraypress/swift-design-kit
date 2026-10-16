@@ -1,5 +1,5 @@
 {
-  "originHash" : "9e92216aca083e3a35604ed24fc20b9d4b5d57b1177a3b3fc5698f95cbef6600",
+  "originHash" : "54e3a7c84b0001471261aa28d339bd41432eb19be199a2d99a54434fecd5c730",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -114,8 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-legibility.git",
       "state" : {
-        "revision" : "2c3783c38714a2fc0c3e4a0966c7cebc7fd54e66",
-        "version" : "0.2.1"
+        "revision" : "8ae4e647b7c63647f39a94c470f8483a7ae03894",
+        "version" : "0.3.0"
       }
     },
     {

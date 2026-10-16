@@ -32,31 +32,31 @@ enum Layouter {
         }
     }
 
-    /// Frames and text fits for every layer; `anchors` replaces a layer's
-    /// declared anchor (what `avoid` decided).
+    /// Frames and text fits for every layer; `moves` places a text layer
+    /// where `avoid` put it rather than where it was declared.
     static func place(_ design: Design, geometry: CanvasGeometry, families: [String: String],
-                      anchors: [String: Anchor] = [:]) -> (frames: [String: CGRect], fits: [String: TextFit]) {
+                      moves: [String: TextMove] = [:]) -> (frames: [String: CGRect], fits: [String: TextFit]) {
         var frames: [String: CGRect] = [:]
         var fits: [String: TextFit] = [:]
         var extents: [String: CGRect] = [:]
         for entry in entries(design.layers) {
+            let layer = moves[entry.path].map { Moves.applied($0, to: entry.layer) } ?? entry.layer
             let area: CGRect
             if let parent = entry.parent, let parentFrame = frames[parent] {
                 area = parentFrame
             } else {
-                area = geometry.rect(entry.layer.frame.area ?? defaultArea(entry.layer))
+                area = geometry.rect(layer.frame.area ?? defaultArea(layer))
             }
-            let referenceID = entry.layer.frame.below ?? entry.layer.frame.above
-            let frame = Layout.frame(entry.layer.frame, in: area, grid: design.grid, anchor: anchors[entry.path],
-                                     reference: referenceID.flatMap { extents[$0] })
+            let referenceID = layer.frame.below ?? layer.frame.above
+            let frame = Layout.frame(layer.frame, in: area, grid: design.grid, reference: referenceID.flatMap { extents[$0] })
             frames[entry.path] = frame
             var extent = frame
-            if case .text(let text) = entry.layer.content,
+            if case .text(let text) = layer.content,
                let fit = layout(text, vars: design.vars, family: families[entry.path], frame: frame, geometry: geometry) {
                 fits[entry.path] = fit
                 if let lines = fit.linesBounds { extent = Layout.flipped(lines, height: Double(geometry.pixelHeight)) }
             }
-            if let id = entry.layer.id { extents[id] = extent }
+            if let id = layer.id { extents[id] = extent }
         }
         return (frames, fits)
     }

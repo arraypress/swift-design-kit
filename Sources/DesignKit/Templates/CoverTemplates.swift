@@ -24,10 +24,10 @@ extension StarterTemplates {
         "layers": [
           {"type": "background", "id": "background", "fill": "{background}", "grain": 0.08, "scrim": {"edge": "auto"}},
           {"type": "text", "id": "artist", "text": "{artist}", "weight": "medium", "size": 34, "tracking": 320, "case": "upper",
-           "color": "auto", "frame": {"anchor": "top", "height": 0.08}, "avoid": ["faces"]},
+           "color": "auto", "frame": {"anchor": "top", "height": 0.08}, "avoid": ["faces", "subject"]},
           {"type": "text", "id": "title", "text": "{title}", "weight": "bold", "size": 150, "min_size": 60, "max_lines": 2,
            "line_height": 0.95, "color": "auto", "frame": {"anchor": "bottom", "height": 0.3},
-           "shadow": {"color": "#00000040", "blur": 30, "y": 6}, "avoid": ["faces"]}
+           "shadow": {"color": "#00000040", "blur": 30, "y": 6}, "avoid": ["faces", "subject"]}
         ]
       },
       {
@@ -91,7 +91,7 @@ extension StarterTemplates {
           {"type": "shape", "id": "band", "shape": "rect", "fill": "#101418E6", "frame": {"area": "trim", "anchor": "bottom", "height": 0.3}},
           {"type": "text", "id": "show", "text": "{show}", "font": "inter", "weight": "bold", "size": 160, "min_size": 60,
            "max_lines": 2, "line_height": 0.92, "align": "left", "valign": "top", "color": "auto",
-           "frame": {"anchor": "top-left", "height": 0.55}, "avoid": ["faces"]},
+           "frame": {"anchor": "top-left", "height": 0.55}, "avoid": ["faces", "subject"]},
           {"type": "text", "id": "tagline", "text": "{tagline}", "font": "inter", "weight": "regular", "size": 38, "max_lines": 2,
            "align": "left", "valign": "bottom", "color": "#FFFFFFB8", "frame": {"anchor": "bottom-left", "height": 0.09}},
           {"type": "text", "id": "host", "text": "{host}", "font": "inter", "weight": "semibold", "size": 62, "max_lines": 1,

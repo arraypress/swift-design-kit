@@ -17,7 +17,7 @@ framework and no Core AI, so a future iPhone app can reuse it. The AI product
 | Layer | What it draws |
 |---|---|
 | `background` | A fill, which can be a colour, a `linear`/`radial` blend, a GradientKit wallpaper (`seed`, `palette`, `motif`), a picture file, or a picture made from words (`ai`: model, revision, seed, shape, prompt, style). Treatments: `fit`, `blur`, `darken`, `scrim` (bottom, top, both, or `auto`, which is measured), `grade` (an img/vid look, inline or a file), `duotone`, `grain`, `vignette`, `upscale`. |
-| `text` | Words with `{slot}` markers and `**accent**` / `*italic*` / `~muted~` spans. Options: `font` (system, the bundled `inter` / `source-serif` / `jetbrains-mono`, or a `.ttf`/`.otf`), `weight`, `size`, `min_size`, `max_lines`, `fit: shrink`, `tracking`, `line_height`, `case`, `align`, `valign`. Colour: `color`, which can be `auto` (picked from the art), or a `gradient`. Also `stroke` (outline or hollow), `plate` (whole block or per line, with `auto` drawing only as much plate as WCAG 4.5:1 needs), and `avoid` (faces or a cut-out subject). |
+| `text` | Words with `{slot}` markers and `**accent**` / `*italic*` / `~muted~` spans. Options: `font` (system, the bundled `inter` / `source-serif` / `jetbrains-mono`, or a `.ttf`/`.otf`), `weight`, `size`, `min_size`, `max_lines`, `fit: shrink`, `tracking`, `line_height`, `case`, `align`, `valign`. Colour: `color`, which can be `auto` (picked from the art), or a `gradient`. Also `stroke` (outline or hollow), `plate` (whole block or per line, with `auto` drawing only as much plate as WCAG 4.5:1 needs), and `avoid`: `faces`, and `subject` (the main subject of the art under the words, as Vision lifts it, plus any cut-out picture). |
 | `image` | A picture file, or its subject lifted out (`cutout`). Options: `fit`/`focus`, `mask` (rect, rounded, circle, polygon), and `stroke`, which follows the mask or draws a sticker outline round a cut-out. |
 | `shape` | `rect`, `rounded`, `ellipse`, `line`, `polygon` or `star`, with a fill, a `gradient` or a `stroke`. |
 | `qr` | A link or text as a QR code (QRKit). |
@@ -34,6 +34,22 @@ screen, overlay, soft-light), `rotation`, `shadow` and `glow`.
 - a column span (`columns: [first, count]` over the design's `grid`);
 - or a place `below`/`above` an earlier layer by its id. Text is measured by
   its drawn lines, not its box.
+
+**`avoid` moves words off what they would cover.** Faces (Vision's face
+boxes) and the subject (Vision's foreground mask, the subject's own pixels:
+the microphone and its cable, not the desk) are looked for in the art under
+the text — backgrounds and pictures only, never other words or shapes — and
+the text's lines are measured against them. Over 1% covered, every other
+anchor is tried at full width, and alignment that hugged the old anchor
+follows the new one (a title set left at top-left is set right at
+top-right); the first that clears wins, else the one that covers least. Only
+when no anchor clears is the frame narrowed (80%, 60%, 45%, 35% of its
+width, each anchor in turn), and only to clear. A place that does not fit or
+puts the words on other words is never taken. Shapes and codes drawn under
+the words (a label strip, a starburst) hide the subject: words on them are
+not on it. The starters whose words sit
+over the art (`cover-clean`, `podcast-cover`, `gig-poster`,
+`youtube-thumbnail`, `story-announcement`) avoid both.
 
 **Sizes are design units:** a thousandth of the trimmed page's shorter side.
 `size: 80` is 8% of it at every size, from a 1080 post to an A3 poster.
@@ -91,6 +107,8 @@ These are measured, never judged:
 | bleed | A print page has less than 3 mm of bleed, or a picture that does not reach the bleed edge. |
 | platform | The page breaks the preset's size rules, for example a cover under 3000×3000. |
 | unfilled | A `{slot}` has no value. |
+| subject | More than 2% of a text layer's letters lie on the subject of the art under it (`onSubject` in each text measure, `0` when there is no subject, `null` when Vision could not run). The fix names `avoid: ["subject"]` when the layer does not have it. Warning only. |
+| avoid | A layer that avoids faces or the subject still covers them and no placement clears it. Warning only. |
 
 Measured on this machine:
 - The same design writes byte-identical PNGs across runs, processes, and
@@ -100,6 +118,13 @@ Measured on this machine:
   build.
 - The first OCR call in a new program waits about a minute while Vision loads
   its recogniser. After that it is quick.
+- The subject mask takes about 0.2 s. On the generated "Slow Signal" podcast
+  cover (FLUX.2 Klein 4B, seed 5) the mask is the microphone and its cable,
+  12% of the picture; the title had 17% of its letters on it, and with
+  `avoid: ["subject"]` it is narrowed at top-left to 35% of its width: 0%.
+  A flat colour or a plain gradient lifts no subject: across the 12
+  starter templates on their gradient backgrounds, nothing moved and every
+  layer measured 0% on a subject.
 
 ## Requirements
 

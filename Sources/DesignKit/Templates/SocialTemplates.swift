@@ -25,7 +25,7 @@ extension StarterTemplates {
           {"type": "text", "id": "headline", "text": "{headline}", "weight": "black", "size": 170, "min_size": 70, "max_lines": 3,
            "line_height": 0.9, "case": "upper", "align": "left", "color": "#FFFFFF",
            "tracking": 10, "stroke": {"color": "#000000", "width": 7}, "shadow": {"color": "#000000", "blur": 0, "x": 7, "y": 7},
-           "frame": {"anchor": "left", "width": 0.62, "height": 0.86, "x": 0.01}, "avoid": ["faces"]},
+           "frame": {"anchor": "left", "width": 0.62, "height": 0.86, "x": 0.01}, "avoid": ["faces", "subject"]},
           {"type": "text", "id": "tag", "text": "{tag}", "weight": "black", "size": 64, "max_lines": 1, "case": "upper",
            "color": "#111111", "plate": {"color": "#FFE600", "padding": 16, "radius": 12}, "rotation": 6,
            "frame": {"anchor": "top-right", "width": 0.26, "height": 0.16}}
@@ -67,7 +67,7 @@ extension StarterTemplates {
            "max_lines": 1, "color": "#111111", "plate": {"color": "#FFFFFF", "padding": 22, "radius": 60},
            "frame": {"anchor": "top", "height": 0.06, "y": 0.012}},
           {"type": "text", "id": "title", "text": "{title}", "weight": "black", "size": 230, "min_size": 80, "max_lines": 3,
-           "line_height": 0.9, "color": "auto", "frame": {"anchor": "center", "height": 0.36}, "avoid": ["faces"],
+           "line_height": 0.9, "color": "auto", "frame": {"anchor": "center", "height": 0.36}, "avoid": ["faces", "subject"],
            "shadow": {"color": "#00000033", "blur": 24, "y": 6}},
           {"type": "text", "id": "date", "text": "{date}", "weight": "semibold", "size": 64, "max_lines": 1, "color": "auto",
            "frame": {"anchor": "top", "height": 0.07, "below": "title", "gap": 0.03}}

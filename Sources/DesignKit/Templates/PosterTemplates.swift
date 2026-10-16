@@ -82,7 +82,7 @@ extension StarterTemplates {
         "layers": [
           {"type": "background", "id": "background", "fill": "{background}", "grain": 0.12, "scrim": {"edge": "both", "strength": 0.55}},
           {"type": "text", "id": "artist", "text": "{artist}", "font": "source-serif", "weight": "bold", "size": 230, "min_size": 80,
-           "max_lines": 2, "line_height": 0.9, "color": "#FFFFFF", "frame": {"anchor": "top", "height": 0.4}, "avoid": ["faces"]},
+           "max_lines": 2, "line_height": 0.9, "color": "#FFFFFF", "frame": {"anchor": "top", "height": 0.4}, "avoid": ["faces", "subject"]},
           {"type": "text", "id": "support", "text": "*{support}*", "font": "source-serif", "weight": "regular", "size": 56,
            "max_lines": 2, "color": "#FFFFFF", "shadow": {"color": "#000000A6", "blur": 14, "y": 3},
            "frame": {"anchor": "top", "height": 0.1, "below": "artist", "gap": 0.02}},
