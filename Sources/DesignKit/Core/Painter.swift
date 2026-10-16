@@ -38,20 +38,31 @@ enum Painter {
         /// what hides the art from words laid over it (a label strip, a
         /// starburst).
         var coversBefore: String?
+        /// Only what is drawn before the layer at this path (the groups it is in, their earlier children).
+        var drawnBefore: String?
+        /// With `only`: that layer and its groups drawn without their
+        /// opacity or blend (a fade stays: it is part of the pixels) — a layer's own pixels, as a
+        /// layered file holds them beside its opacity and blend mode.
+        var plain = false
+        /// Text layers drawn as pictures rather than as words (a PDF whose
+        /// font may not be embedded).
+        var textAsPictures: Set<String> = []
 
         static let all = Filter()
 
         func includes(_ path: String) -> Bool {
             if let coversBefore, !Painter.drawn(path, before: coversBefore) { return false }
+            if let drawnBefore, !Painter.drawn(path, before: drawnBefore) { return false }
             guard let only else { return true }
-            return path == only || only.hasPrefix(path + ".")
+            // The layer, the groups it is in, and — for a group — everything in it.
+            return path == only || only.hasPrefix(path + ".") || path.hasPrefix(only + ".")
         }
 
         func includes(_ layer: Layer) -> Bool {
             switch layer.content {
             case .group: return true
             case .background, .image: return coversBefore == nil
-            case .shape, .qr: return !artOnly
+            case .shape, .qr, .texture: return !artOnly
             case .text: return !artOnly && coversBefore == nil
             }
         }
@@ -94,23 +105,33 @@ enum Painter {
         if case .group = layer.content { group = true }
         let shadow = bare ? nil : layer.shadow
         let glow = bare ? nil : layer.glow
-        let isolated = !bare && (layer.opacity < 1 || layer.blend != .normal || shadow != nil || glow != nil || group)
+        let glowColor = (plan.color(glow?.color) ?? .white).cgColor
+        // A layer's own pixels for a layered file: no fade, opacity or blend.
+        // Only the layer itself and the groups it is in; what is inside a group keeps its own look.
+        let plain = filter.plain && filter.only.map { path == $0 || $0.hasPrefix(path + ".") } == true
+        let opacity = plain ? 1 : layer.opacity
+        let blend = plain ? BlendMode.normal : layer.blend
+        let fade = bare ? nil : layer.fade
+        let isolated = !bare && (opacity < 1 || blend != .normal || shadow != nil || glow != nil || group || fade != nil)
         if !bare {
-            context.setAlpha(layer.opacity)
-            context.setBlendMode(layer.blend.cgBlendMode)
+            context.setAlpha(opacity)
+            context.setBlendMode(blend.cgBlendMode)
         }
         if let shadow {
             context.setShadow(offset: CGSize(width: shadow.x * unit * deviceScale, height: -shadow.y * unit * deviceScale),
                               blur: shadow.blur * unit * deviceScale, color: shadow.color.cgColor)
-        } else if let glow {
-            context.setShadow(offset: .zero, blur: glow.radius * unit * deviceScale, color: glow.color.cgColor)
+        } else if glow != nil {
+            context.setShadow(offset: .zero, blur: (glow?.radius ?? 0) * unit * deviceScale, color: glowColor)
         }
         if isolated { context.beginTransparencyLayer(auxiliaryInfo: nil) }
         // A glow under a shadow: its own layer inside the shadowed one.
         let nestedGlow = shadow != nil && glow != nil
         if nestedGlow, let glow {
-            context.setShadow(offset: .zero, blur: glow.radius * unit * deviceScale, color: glow.color.cgColor)
+            context.setShadow(offset: .zero, blur: glow.radius * unit * deviceScale, color: glowColor)
             context.beginTransparencyLayer(auxiliaryInfo: nil)
+        }
+        if let fade, let mask = Fades.mask(fade, frame: box) {
+            context.clip(to: mask.rect, mask: mask.image)
         }
         if isolated {
             // Inside the layer everything draws plainly; the fade, blend and
@@ -126,9 +147,15 @@ enum Painter {
         case .image(let image):
             if !bare { drawImage(image, picture: prepared.pictures[path], in: box, unit: unit, context: context) }
         case .text(let text):
-            drawText(text, path: path, prepared: prepared, plan: plan, in: box, lettersOnly: bare, context: context)
+            if !bare, filter.textAsPictures.contains(path) {
+                drawTextAsPicture(text, path: path, prepared: prepared, plan: plan, in: box, context: context)
+            } else {
+                drawText(text, path: path, prepared: prepared, plan: plan, in: box, lettersOnly: bare, context: context)
+            }
         case .shape(let shape):
-            if !bare { drawShape(shape, in: box, unit: unit, context: context) }
+            if !bare { drawShape(shape, in: box, unit: unit, plan: plan, context: context) }
+        case .texture:
+            if !bare, let picture = prepared.pictures[path] { context.draw(picture.image, in: box) }
         case .qr:
             if !bare, let picture = prepared.pictures[path] {
                 let side = min(box.width, box.height)
@@ -169,42 +196,73 @@ enum Painter {
         // A stroke follows the mask, or the picture's edge; a cut-out's is its outline (above).
         if let stroke = content.stroke, stroke.width > 0, picture.outline == nil, !(content.cutout && content.mask == nil) {
             context.addPath(clip ?? CGPath(rect: rect, transform: nil))
-            context.setStrokeColor(stroke.color.cgColor)
+            context.setStrokeColor((stroke.color.fixed ?? .white).cgColor)
             context.setLineWidth(stroke.width * unit)
             context.setLineJoin(.round)
             context.strokePath()
         }
     }
 
-    static func drawShape(_ shape: ShapeContent, in box: CGRect, unit: Double, context: CGContext) {
+    static func drawShape(_ shape: ShapeContent, in box: CGRect, unit: Double, plan: Plan, context: CGContext) {
         let path = Shapes.path(shape, in: box, unit: unit)
-        if shape.shape == .line {
-            let stroke = shape.stroke ?? Stroke(color: shape.fill ?? .white, width: 4)
+        let fill = plan.color(shape.fill)
+        let ink = plan.color(shape.stroke?.color) ?? fill ?? .white
+        func stroke(_ path: CGPath, width: Double) {
             context.addPath(path)
-            context.setStrokeColor(stroke.color.cgColor)
-            context.setLineWidth(stroke.width * unit)
-            context.setLineCap(.round)
+            context.setStrokeColor(ink.cgColor)
+            context.setLineWidth(width)
+            context.setLineJoin(shape.shape == .brackets ? .miter : .round)
+            if let dash = shape.stroke?.dash { context.setLineDash(phase: 0, lengths: dash.map { $0 * unit }) }
             context.strokePath()
+            context.setLineDash(phase: 0, lengths: [])
+        }
+        if Shapes.isLines(shape.shape) {
+            context.setLineCap(shape.shape == .brackets ? .square : .round)
+            stroke(path, width: Shapes.lineWidth(shape, unit: unit))
+            context.setFillColor(ink.cgColor)
+            if shape.shape == .arrow {
+                let ends = (shape.points ?? [[0, 0.5], [1, 0.5]]).map { Shapes.point($0, in: box) }
+                if ends.count >= 2 {
+                    let size = max(Shapes.lineWidth(shape, unit: unit) * 3, min(box.width, box.height, hypot(box.width, box.height)) * shape.length)
+                    context.addPath(Shapes.arrowHead(from: ends[ends.count - 2], to: ends[ends.count - 1], size: size))
+                    context.fillPath()
+                }
+            } else if shape.shape == .divider {
+                context.addPath(Shapes.diamond(in: box))
+                context.fillPath()
+            }
             return
         }
+        let rule: CGPathFillRule = Shapes.isEvenOdd(shape.shape) ? .evenOdd : .winding
         if let gradient = shape.gradient {
             context.saveGState()
             context.addPath(path)
-            context.clip()
+            context.clip(using: rule)
             Shapes.linear(gradient, angle: shape.angle, in: path.boundingBox, context: context)
             context.restoreGState()
-        } else if let fill = shape.fill {
+        } else if let fill = fill ?? (shape.stroke == nil ? .white : nil) {
             context.addPath(path)
             context.setFillColor(fill.cgColor)
-            context.fillPath()
+            context.fillPath(using: rule)
         }
-        if let stroke = shape.stroke, stroke.width > 0 {
-            context.addPath(path)
-            context.setStrokeColor(stroke.color.cgColor)
-            context.setLineWidth(stroke.width * unit)
-            context.setLineJoin(.round)
-            context.strokePath()
-        }
+        if let line = shape.stroke, line.width > 0 { stroke(path, width: line.width * unit) }
+    }
+
+    /// A text layer drawn into a picture first, then the picture placed —
+    /// for a PDF whose font's licence does not allow embedding it.
+    static func drawTextAsPicture(_ text: TextContent, path: String, prepared: PreparedDesign, plan: Plan, in box: CGRect,
+                                  context: CGContext) {
+        let unit = prepared.geometry.unit
+        let size = (prepared.faces[path]?.size ?? text.size) * unit
+        let pad = size * 0.6 + (text.plate?.padding ?? 0) * unit + (text.stroke?.width ?? 0) * unit
+        var region = box
+        if let lines = plan.fits[path]?.linesBounds { region = region.union(lines) }
+        region = region.insetBy(dx: -pad, dy: -pad).integral
+        guard let picture = Bitmaps.image(width: Int(region.width), height: Int(region.height), { offscreen in
+            offscreen.translateBy(x: -region.minX, y: -region.minY)
+            drawText(text, path: path, prepared: prepared, plan: plan, in: box, lettersOnly: false, context: offscreen)
+        }) else { return }
+        context.draw(picture, in: region)
     }
 
     static func drawText(_ text: TextContent, path: String, prepared: PreparedDesign, plan: Plan, in box: CGRect,
@@ -212,8 +270,8 @@ enum Painter {
         let unit = prepared.geometry.unit
         let decision = plan.text[path]
         let text = decision?.move.map { Moves.applied($0, to: text) } ?? text
-        let color = decision?.color ?? { if case .color(let c) = text.color { return c }; return .white }()
-        var style = TextStyles.style(text, family: prepared.families[path], color: color, lettersOnly: lettersOnly)
+        let color = decision?.color ?? plan.color(text.color) ?? .white
+        var style = TextStyles.style(text, face: prepared.faces[path], color: color, plan: plan, lettersOnly: lettersOnly)
         let words = Words.cased(Words.filled(text.text, vars: prepared.design.vars), text.textCase)
 
         if !lettersOnly, let plate = text.plate, let fill = decision?.plate {

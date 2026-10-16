@@ -81,7 +81,7 @@ public enum Recipes {
                     layer.content = .text(text)
                 case .group(let children):
                     layer.content = .group(fix(children))
-                case .shape, .qr:
+                case .shape, .qr, .texture:
                     break
                 }
                 return layer
@@ -104,6 +104,14 @@ public enum Recipes {
             throw RecipeError("--set takes field=value: title=\"Night Drive\", background.seed=8, canvas.width=2000")
         }
         let name = pair.name.trimmingCharacters(in: .whitespaces)
+        // `pairing=swiss` changes the type: the faces pinned from the old pairing go.
+        if ["pairing", "fonts.pairing"].contains(name.lowercased()) {
+            let wanted = pair.value.trimmingCharacters(in: .whitespaces).lowercased()
+            guard Pairings.named(wanted) != nil else { throw RecipeError(Pairings.refusal(wanted, at: name)) }
+            var changed = design
+            changed.fonts = Typesetting(pairing: wanted)
+            return changed
+        }
         let (path, kind) = try SetPaths.resolve(name, value: pair.value, in: design)
         return try FieldSetter.set(path, to: pair.value, kind: kind, in: design) { error in
             (error as? RecipeError) ?? RecipeError("\(name): \(error.localizedDescription)")

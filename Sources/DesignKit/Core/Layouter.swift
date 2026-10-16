@@ -34,7 +34,7 @@ enum Layouter {
 
     /// Frames and text fits for every layer; `moves` places a text layer
     /// where `avoid` put it rather than where it was declared.
-    static func place(_ design: Design, geometry: CanvasGeometry, families: [String: String],
+    static func place(_ design: Design, geometry: CanvasGeometry, faces: [String: ResolvedFace],
                       moves: [String: TextMove] = [:]) -> (frames: [String: CGRect], fits: [String: TextFit]) {
         var frames: [String: CGRect] = [:]
         var fits: [String: TextFit] = [:]
@@ -52,7 +52,7 @@ enum Layouter {
             frames[entry.path] = frame
             var extent = frame
             if case .text(let text) = layer.content,
-               let fit = layout(text, vars: design.vars, family: families[entry.path], frame: frame, geometry: geometry) {
+               let fit = layout(text, vars: design.vars, face: faces[entry.path], frame: frame, geometry: geometry) {
                 fits[entry.path] = fit
                 if let lines = fit.linesBounds { extent = Layout.flipped(lines, height: Double(geometry.pixelHeight)) }
             }
@@ -63,15 +63,17 @@ enum Layouter {
 
     /// Backgrounds reach the bleed; everything else stays in the safe area.
     static func defaultArea(_ layer: Layer) -> Area {
-        if case .background = layer.content { return .bleed }
-        return .safe
+        switch layer.content {
+        case .background, .texture: return .bleed
+        default: return .safe
+        }
     }
 
     /// The text laid out in `frame` (top-left) — sizes, lines, fit.
-    static func layout(_ text: TextContent, vars: [String: String], family: String?, frame: CGRect,
+    static func layout(_ text: TextContent, vars: [String: String], face: ResolvedFace?, frame: CGRect,
                        geometry: CanvasGeometry) -> TextFit? {
         let words = Words.cased(Words.filled(text.text, vars: vars), text.textCase)
-        let style = TextStyles.style(text, family: family, color: .white)
+        let style = TextStyles.style(text, face: face, color: .white)
         return TextDrawer.layout(text: words, style: style, in: Layout.flipped(frame, height: Double(geometry.pixelHeight)),
                                  verticalAlignment: TextStyles.vertical(text.valign), scale: geometry.unit)
     }

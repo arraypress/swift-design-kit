@@ -15,8 +15,8 @@ struct TemplateTests {
 
     @Test func theCatalogueIsSound() {
         #expect(StarterTemplates.problems.isEmpty, "\(StarterTemplates.problems)")
-        #expect(StarterTemplates.all.count == 12)
-        #expect(Set(StarterTemplates.all.map(\.name)).count == 12)
+        #expect(StarterTemplates.all.count == 17)
+        #expect(Set(StarterTemplates.all.map(\.name)).count == 17)
         for template in StarterTemplates.all {
             #expect(Presets.named(template.preset) != nil, "\(template.name)")
             #expect(template.slots.contains { $0.name == "background" }, "\(template.name) takes a background")
@@ -31,7 +31,7 @@ struct TemplateTests {
         #expect(design.template == "club-night")
         guard case .text(let text) = design.layers[1].content else { Issue.record("no text"); return }
         #expect(text.text == "{night}")
-        #expect(design.layers[1].glow?.color == DesignColor("#00E5FF"), "a colour slot is filled when made")
+        #expect(design.layers[1].glow?.color == .color(DesignColor("#00E5FF")!), "a colour slot is filled when made")
     }
 
     @Test func aBackgroundValueBecomesItsFill() throws {

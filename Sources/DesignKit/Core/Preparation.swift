@@ -31,14 +31,14 @@ public enum Preparation {
         let geometry = design.canvas.geometry
         let made = try pinned(design, services: services, geometry: geometry)
 
-        var families: [String: String] = [:]
+        var faces: [String: ResolvedFace] = [:]
         for entry in Layouter.entries(made.layers) {
-            if case .text(let text) = entry.layer.content,
-               let family = try Fonts.family(for: text.font, folder: services.folder) {
-                families[entry.path] = family
+            if case .text(let text) = entry.layer.content {
+                faces[entry.path] = try await Fonts.face(for: text, typesetting: made.fonts, folder: services.folder,
+                                                         fetcher: services.fonts)
             }
         }
-        let placed = Layouter.place(made, geometry: geometry, families: families)
+        let placed = Layouter.place(made, geometry: geometry, faces: faces)
         let textRegions = placed.fits.values.compactMap(\.linesBounds)
 
         var pictures: [String: PreparedPicture] = [:]
@@ -60,11 +60,16 @@ public enum Preparation {
                 sources.append(note)
             case .qr(let qr):
                 pictures[entry.path] = PreparedPicture(image: try code(qr, vars: made.vars))
+            case .texture(let texture):
+                guard let image = Textures.render(texture, width: width, height: height, unit: geometry.unit) else {
+                    throw .failed("a \(width)×\(height) \(texture.kind.rawValue) texture could not be made")
+                }
+                pictures[entry.path] = PreparedPicture(image: image)
             case .text, .shape, .group:
                 break
             }
         }
-        return PreparedDesign(design: made, geometry: geometry, pictures: pictures, families: families, sources: sources)
+        return PreparedDesign(design: made, geometry: geometry, pictures: pictures, faces: faces, sources: sources)
     }
 
     // MARK: Pinning
@@ -72,6 +77,7 @@ public enum Preparation {
     /// The design with every made picture pinned and every look read in.
     static func pinned(_ design: Design, services: DesignServices, geometry: CanvasGeometry) throws(DesignError) -> Design {
         var design = design
+        design.fonts = try Fonts.pinned(design.fonts, usesRoles: usesRoles(design.layers), fetcher: services.fonts)
         design.layers = try design.layers.map { layer throws(DesignError) in
             guard case .background(var background) = layer.content else { return layer }
             var layer = layer
@@ -92,6 +98,14 @@ public enum Preparation {
             return layer
         }
         return design
+    }
+
+    /// Whether any text layer names a role (`display`, `text`) or a named size.
+    static func usesRoles(_ layers: [Layer]) -> Bool {
+        Layouter.entries(layers).contains { entry in
+            guard case .text(let text) = entry.layer.content else { return false }
+            return text.step != nil || text.font.map { Fonts.roles.contains($0.lowercased()) } ?? false
+        }
     }
 
     // MARK: Backgrounds
@@ -161,8 +175,8 @@ public enum Preparation {
         var kind = "file"
         if content.cutout {
             services.progress?("lifting the subject out of \(content.source)")
-            let original = source, name = content.source
-            source = try await Offload.run { () throws(DesignError) -> CGImage in try lifted(original, name: name) }
+            let original = source, name = content.source, edge = EdgeOptions(edge: content.edge, choke: content.choke)
+            source = try await Offload.run { () throws(DesignError) -> CGImage in try lifted(original, name: name, edge: edge) }
             kind = "cutout"
         }
         let (image, upscaled, before) = try await enlarged(source, width: width, height: height, mode: content.fit,
@@ -171,7 +185,7 @@ public enum Preparation {
         if content.cutout, content.mask == nil, let stroke = content.stroke, stroke.width > 0 {
             let drawnScale = Bitmaps.enlargement(of: image, width: width, height: height, mode: content.fit)
             let pad = stroke.width * unit / max(drawnScale, 0.0001)
-            picture.outline = Outlines.outline(of: image, radius: pad, color: stroke.color)
+            picture.outline = Outlines.outline(of: image, radius: pad, color: stroke.color.fixed ?? .white)
             picture.pad = pad.rounded(.up)
         }
         let note = SourceNote(layer: entry.path, id: entry.layer.id, kind: kind, sourceWidth: source.width,
@@ -190,11 +204,11 @@ public enum Preparation {
     }
 
     /// The subject lifted off its background, cropped to it.
-    static func lifted(_ image: CGImage, name: String) throws(DesignError) -> CGImage {
+    static func lifted(_ image: CGImage, name: String, edge: EdgeOptions = .crisp) throws(DesignError) -> CGImage {
         let input = CIImage(cgImage: image)
         let result: (image: CIImage, bounds: CGRect)?
         do {
-            result = try Matte.cutout(from: input, mode: .subject).map { ($0.image, $0.bounds) }
+            result = try Matte.cutout(from: input, mode: .subject, edge: edge).map { ($0.image, $0.bounds) }
         } catch {
             throw .failed("the subject could not be lifted out of \(name): \(error.localizedDescription)")
         }

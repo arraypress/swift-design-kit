@@ -65,6 +65,56 @@ public enum ShapeKind: String, DesignChoice {
     case line
     case polygon
     case star
+    /// A border inside the box (`inset`, `radius` for round corners).
+    case frame
+    /// Two borders, `gap` apart.
+    case doubleFrame = "double-frame"
+    /// An L at each corner, `length` long.
+    case brackets
+    /// A film strip's edges: bands top and bottom with `count` sprocket holes each.
+    case filmStrip = "film-strip"
+    /// A line with a head at its end (`points`, `length` for the head).
+    case arrow
+    /// A ring: the ellipse with its middle (`inner`) cut out.
+    case ring
+    /// A many-pointed burst (`count`, `inner`).
+    case burst
+    /// A seal with a scalloped edge (`count` scallops).
+    case badge
+    /// A rule with a small diamond at its centre.
+    case divider
+}
+
+/// What a texture layer draws.
+public enum TextureKind: String, DesignChoice {
+    /// Paper fibre: soft blotches and fine grain.
+    case paper
+    /// A dot screen whose dots grow across the frame.
+    case halftone
+    /// Even per-pixel noise.
+    case noise
+    /// Horizontal lines, a monitor's or a print's.
+    case scanlines
+    /// Film dust: specks and hairs.
+    case dust
+
+    /// The mark size it draws at unless told, in design units.
+    var defaultScale: Double {
+        switch self {
+        case .paper: 6
+        case .halftone: 14
+        case .noise: 1
+        case .scanlines: 6
+        case .dust: 3
+        }
+    }
+}
+
+/// Where a fade goes.
+public enum FadeEdge: String, DesignChoice {
+    case top, bottom, left, right
+    /// From the middle out to the corners.
+    case radial
 }
 
 /// The outline a picture is clipped to.

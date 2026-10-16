@@ -101,14 +101,16 @@ struct TextTests {
     }
 
     @Test func fontsResolveOrAreRefused() async throws {
-        #expect(try Fonts.family(for: "inter", folder: Probe.folder) == "Inter")
-        #expect(try Fonts.family(for: "source-serif", folder: Probe.folder) == "Source Serif 4")
-        #expect(try Fonts.family(for: nil, folder: Probe.folder) == nil)
-        #expect(throws: DesignError.self) { try Fonts.family(for: "Helvetika", folder: Probe.folder) }
-        do { _ = try Fonts.family(for: "Helvetika", folder: Probe.folder) } catch {
+        #expect(try await Fonts.family(for: "inter", folder: Probe.folder) == "Inter")
+        #expect(try await Fonts.family(for: "source-serif", folder: Probe.folder) == "Source Serif 4")
+        #expect(try await Fonts.family(for: nil, folder: Probe.folder) == nil)
+        do { _ = try await Fonts.family(for: "Helvetika", folder: Probe.folder); Issue.record("not refused") } catch {
             #expect(error.localizedDescription.contains("did you mean Helvetica"))
         }
-        #expect(throws: DesignError.self) { try Fonts.family(for: "missing.ttf", folder: Probe.folder) }
+        do { _ = try await Fonts.family(for: "missing.ttf", folder: Probe.folder); Issue.record("not refused") } catch {}
+        do { _ = try await Fonts.family(for: "Bebas Neue", folder: Probe.folder); Issue.record("fetched with no fetcher") } catch {
+            #expect(error.localizedDescription.contains("open font"))
+        }
         let rendered = try await Probe.render(Probe.square(##"{"type": "background", "fill": "#000000"}, {"type": "text", "text": "Serif", "font": "source-serif", "size": 80}"##))
         #expect(rendered.report.text[0].readBack == 1)
     }

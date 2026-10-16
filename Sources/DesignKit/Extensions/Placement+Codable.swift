@@ -86,7 +86,7 @@ extension Glow: Codable {
     public init(from decoder: any Decoder) throws {
         try decoder.refuseUnknownKeys(CodingKeys.self, noun: "design")
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(color: try c.decode(DesignColor.self, forKey: .color), radius: try c.number(.radius, in: 0...500, or: 20))
+        self.init(color: try c.decode(Paint.self, forKey: .color), radius: try c.number(.radius, in: 0...500, or: 20))
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -98,13 +98,17 @@ extension Glow: Codable {
 
 extension Stroke: Codable {
 
-    enum CodingKeys: String, CodingKey, CaseIterable { case color, width, style }
+    enum CodingKeys: String, CodingKey, CaseIterable { case color, width, style, dash }
 
     public init(from decoder: any Decoder) throws {
         try decoder.refuseUnknownKeys(CodingKeys.self, noun: "design")
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(color: try c.decode(DesignColor.self, forKey: .color), width: try c.number(.width, in: 0...200, or: 4),
-                  style: try c.value(.style, or: .outline))
+        let dash = try c.decodeIfPresent([Double].self, forKey: .dash)
+        if let dash, dash.isEmpty || !dash.allSatisfy({ $0.isFinite && $0 > 0 }) {
+            throw RecipeError("\(RecipeJSON.path(decoder.codingPath + [CodingKeys.dash])) is dash and gap lengths, each above 0: [12, 8]")
+        }
+        self.init(color: try c.decode(Paint.self, forKey: .color), width: try c.number(.width, in: 0...200, or: 4),
+                  style: try c.value(.style, or: .outline), dash: dash)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -112,6 +116,7 @@ extension Stroke: Codable {
         try c.encode(color, forKey: .color)
         try c.encode(width, forKey: .width)
         try c.encode(style, forKey: .style)
+        try c.encodeIfPresent(dash, forKey: .dash)
     }
 }
 
@@ -135,6 +140,28 @@ extension Plate: Codable {
         try c.encode(padding, forKey: .padding)
         try c.encode(radius, forKey: .radius)
         if perLine { try c.encode(perLine, forKey: .perLine) }
+    }
+}
+
+extension Fade: Codable {
+
+    enum CodingKeys: String, CodingKey, CaseIterable { case edge, start, end }
+
+    public init(from decoder: any Decoder) throws {
+        try decoder.refuseUnknownKeys(CodingKeys.self, noun: "design")
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(edge: try c.value(.edge, or: .bottom), start: try c.number(.start, in: 0...1, or: 0.5),
+                  end: try c.number(.end, in: 0...1, or: 1))
+        guard end > start else {
+            throw RecipeError("\(RecipeJSON.path(decoder.codingPath)): end (\(end)) must lie past start (\(start))")
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(edge, forKey: .edge)
+        try c.encode(start, forKey: .start)
+        try c.encode(end, forKey: .end)
     }
 }
 

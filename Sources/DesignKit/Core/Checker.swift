@@ -27,6 +27,12 @@ public enum Checker {
     /// More than this share of a text layer's letters on the subject is reported.
     static let subjectLimit = 0.02
 
+    /// More type families than this in one design is reported.
+    public static let familyLimit = 2
+
+    /// More colours than this for words and shapes (the art aside) is reported.
+    public static let colorLimit = 3
+
     static func check(_ prepared: PreparedDesign, plan: Plan, composite: CGImage?) -> CheckReport {
         var plan = plan
         let geometry = prepared.geometry
@@ -80,7 +86,8 @@ public enum Checker {
             }
 
             // Contrast, letters against the ring round them.
-            let sizeUnits = (fit?.pointSize ?? text.size * geometry.unit) / geometry.unit
+            let declared = prepared.faces[path]?.size ?? text.size
+            let sizeUnits = (fit?.pointSize ?? declared * geometry.unit) / geometry.unit
             let needed = sizeUnits >= largeTextUnits ? Contrast.largeTextMinimum : Contrast.normalTextMinimum
             var ratio: Double?
             let letters = render(prepared, plan: plan, scale: scale, filter: Painter.Filter(only: path, lettersOnly: true))
@@ -166,8 +173,77 @@ public enum Checker {
 
         findings += resolution(prepared)
         findings += page(prepared, composite: composite)
+        let (fonts, families) = faces(prepared)
+        if families.count > familyLimit {
+            findings.append(Finding(check: "families", level: .warn,
+                                    message: "the words are set in \(families.count) type families (\(families.joined(separator: ", "))); two at most reads as designed",
+                                    fix: "\"font\": \"display\" / \"text\" on the text layers, through one pairing"))
+        }
+        let colors = inks(prepared, plan: plan)
+        if colors.count > colorLimit {
+            findings.append(Finding(check: "colors", level: .warn,
+                                    message: "words and shapes use \(colors.count) colours (\(colors.joined(separator: ", "))); about three reads as a palette",
+                                    fix: "palette roles (\"accent\", \"light\", \"dark\"…) instead of separate colours"))
+        }
+        let restricted = Set(prepared.faces.values.compactMap { face -> String? in
+            guard let family = face.family, !Fonts.embeddable(family: family, weight: face.weight) else { return nil }
+            return family
+        })
+        for family in restricted.sorted() {
+            findings.append(Finding(check: "embedding", level: .warn,
+                                    message: "\(family)'s licence bits do not allow embedding it: a PDF draws its words as pictures, not text",
+                                    fix: "another face, if the PDF's words must stay text"))
+        }
         findings.sort { $0.level < $1.level }
-        return CheckReport(findings: findings, text: measures, sources: prepared.sources)
+        return CheckReport(findings: findings, text: measures, sources: prepared.sources, palette: plan.palette,
+                           fonts: fonts, pairing: prepared.design.fonts?.pairing, colors: colors)
+    }
+
+    /// The faces the words are set in (`Didot regular`), and the families among them.
+    static func faces(_ prepared: PreparedDesign) -> (faces: [String], families: [String]) {
+        let used = prepared.faces.values
+        let faces = Set(used.map { "\($0.family ?? "system") \($0.weight)" }).sorted()
+        let families = Set(used.map { $0.family ?? "system" }).sorted()
+        return (faces, families)
+    }
+
+    /// The colours words, plates, shapes and strokes are drawn in: a
+    /// palette role counts once by its name (its readable variants are the
+    /// same colour to a reader), others by their hex, near-equal ones once.
+    static func inks(_ prepared: PreparedDesign, plan: Plan) -> [String] {
+        var roles = Set<String>()
+        var hexes = Set<String>()
+        func add(_ paint: Paint?, drawn: DesignColor?) {
+            if case .role(let role)? = paint { roles.insert(role.rawValue); return }
+            guard let color = drawn ?? plan.color(paint), color.components.alpha > 0.2 else { return }
+            hexes.insert(String(color.hex.prefix(7)))
+        }
+        for entry in Layouter.entries(prepared.design.layers) {
+            switch entry.layer.content {
+            case .text(let text):
+                add(text.color, drawn: plan.text[entry.path]?.color)
+                if let plate = text.plate { add(plate.color, drawn: plan.text[entry.path]?.plate) }
+                add(text.accent, drawn: nil)
+                text.gradient?.forEach { add(.color($0), drawn: nil) }
+                add(text.stroke?.color, drawn: nil)
+            case .shape(let shape):
+                add(shape.fill, drawn: nil)
+                shape.gradient?.forEach { add(.color($0), drawn: nil) }
+                add(shape.stroke?.color, drawn: nil)
+            default:
+                break
+            }
+        }
+        // Colours a reader would call the same (OKLab within 0.1) count once, and a role's colour as the role.
+        var kept: [String] = roles.sorted()
+        var keptColors = roles.compactMap { ColorRole(rawValue: $0).flatMap { plan.palette?[$0] } }.map { ColorRoles.lch(hex: $0.hex) }
+        for hex in hexes.sorted() {
+            let lch = ColorRoles.lch(hex: hex)
+            if keptColors.contains(where: { ColorRoles.distance($0, lch) < 0.1 }) { continue }
+            kept.append(hex)
+            keptColors.append(lch)
+        }
+        return kept
     }
 
     /// A text layer's letters against the subject of the art under it.

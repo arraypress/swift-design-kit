@@ -18,7 +18,7 @@ public enum Making {
     /// The design `template` makes with `values` (slot name → value), on
     /// `canvas` or the template's own preset.
     public static func design(from template: Template, values: [String: String],
-                              canvas: CanvasSpec? = nil) throws(DesignError) -> Design {
+                              canvas: CanvasSpec? = nil, pairing: String? = nil, harmony: Harmony? = nil) throws(DesignError) -> Design {
         let vars: [String: String]
         do {
             vars = try SlotFilling.resolved(values, for: template.slots.map(\.styleSlot), style: template.name)
@@ -42,7 +42,12 @@ public enum Making {
         guard let canvas = canvas ?? Presets.named(template.preset).map(CanvasSpec.init(preset:)) else {
             throw .invalid("template \(template.name) names a preset that does not exist: \(template.preset)")
         }
-        return Design(canvas: canvas, template: template.name, vars: vars, grid: template.grid, layers: layers)
+        if let pairing, Pairings.named(pairing) == nil { throw .invalid(Pairings.refusal(pairing, at: "--pairing")) }
+        let chosen = pairing ?? template.pairing
+        var palette = template.palette
+        if let harmony { palette = PaletteSpec(harmony: harmony, fixed: palette?.fixed ?? [:]) }
+        return Design(canvas: canvas, template: template.name, vars: vars, grid: template.grid,
+                      fonts: chosen.map { Typesetting(pairing: $0.lowercased()) }, palette: palette, layers: layers)
     }
 
     /// `value` with every marker in its strings filled — except a text or

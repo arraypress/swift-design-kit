@@ -25,6 +25,8 @@ public struct Layer: Equatable, Sendable {
     public var rotation: Double
     public var shadow: Shadow?
     public var glow: Glow?
+    /// Faded out toward an edge.
+    public var fade: Fade?
     public var content: Content
 
     /// What a layer draws.
@@ -34,13 +36,15 @@ public struct Layer: Equatable, Sendable {
         case image(ImageContent)
         case shape(ShapeContent)
         case qr(QRContent)
+        /// Paper, halftone dots, noise, scanlines or film dust.
+        case texture(TextureContent)
         /// Layers drawn together — placed inside the group's frame, then
         /// faded, blended and turned as one.
         case group([Layer])
     }
 
     public init(id: String? = nil, frame: Placement = .full, opacity: Double = 1, blend: BlendMode = .normal,
-                rotation: Double = 0, shadow: Shadow? = nil, glow: Glow? = nil, content: Content) {
+                rotation: Double = 0, shadow: Shadow? = nil, glow: Glow? = nil, fade: Fade? = nil, content: Content) {
         self.id = id
         self.frame = frame
         self.opacity = opacity
@@ -48,6 +52,7 @@ public struct Layer: Equatable, Sendable {
         self.rotation = rotation
         self.shadow = shadow
         self.glow = glow
+        self.fade = fade
         self.content = content
     }
 }

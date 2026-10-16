@@ -4,11 +4,13 @@
 //
 //  Created by David Sherlock on 2026.
 //
-//  A text layer's `font` to a family CoreText can draw: an installed family
-//  by name, one of the faces bundled with DocumentTheme (`inter`,
-//  `source-serif`, `jetbrains-mono`), or a font file, registered for this
-//  process. An unknown name is refused: CoreText would quietly substitute a
-//  default face, and a cover set in the wrong typeface looks deliberate.
+//  A text layer's `font` to a family CoreText can draw: a role (`display`,
+//  `text`) through the design's pairing, any family installed on this Mac,
+//  one of the faces bundled with DocumentTheme (`inter`, `source-serif`,
+//  `jetbrains-mono`), an open font fetched on first use (`Playfair
+//  Display`), or a font file — registered for this process. An unknown name
+//  is refused: CoreText would quietly substitute a default face, and a cover
+//  set in the wrong typeface looks deliberate.
 //
 
 import CanvasKit
@@ -27,12 +29,24 @@ public enum Fonts {
         ("jetbrains-mono", "JetBrains Mono", ["JetBrainsMono-Regular", "JetBrainsMono-Medium", "JetBrainsMono-Bold"]),
     ]
 
+    /// The words a text layer's `font` uses for the design's two faces.
+    public static let roles = ["display", "text"]
+
+    /// The weights a text layer may name, lightest first.
+    public static let weights = ["thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black"]
+
     /// Fonts already resolved this process, by what the design named.
     private static let registered = Mutex<[String: String]>([:])
 
+    /// Whether `name` can be drawn without fetching anything: bundled, or
+    /// installed on this Mac.
+    static func isLocal(_ name: String) -> Bool {
+        bundled.contains { $0.name == name.lowercased() } || FontResolver.isAvailable(name)
+    }
+
     /// The family to draw `font` with (`nil` for the system face), files
-    /// taken from `folder` when relative.
-    public static func family(for font: String?, folder: URL) throws(DesignError) -> String? {
+    /// taken from `folder` when relative, open fonts fetched with `fetcher`.
+    public static func family(for font: String?, folder: URL, fetcher: (any FontFetching)? = nil) async throws(DesignError) -> String? {
         guard let font, !font.isEmpty, font.lowercased() != "system" else { return nil }
         if let known = registered.withLock({ $0[font] }) { return known }
         let family: String
@@ -50,13 +64,25 @@ public enum Fonts {
             guard let name = familyName(of: url) else { throw .invalid("\(url.lastPathComponent) is not a font CoreText can read") }
             register(url)
             family = name
-        } else {
-            guard FontResolver.isAvailable(font) else {
-                let close = FieldPaths.closest(font, among: installedFamilies())
-                throw .missing("no font family \"\(font)\" on this machine" + (close.map { " — did you mean \($0)?" } ?? "")
-                               + "; `design fonts` lists them, and a .ttf/.otf path works too")
-            }
+        } else if FontResolver.isAvailable(font) {
             family = font
+        } else if let open = OpenFonts.named(font) {
+            let files: [URL]
+            if let fetched = fetcher?.fetched(open) {
+                files = fetched
+            } else if let fetcher {
+                files = try await fetcher.files(for: open)
+            } else {
+                throw .missing("\(open.family) is an open font (\(open.licence)) fetched on first use, and nothing here can fetch it"
+                               + " — `design` fetches it; or install it")
+            }
+            for url in files where ["ttf", "otf"].contains(url.pathExtension.lowercased()) { register(url) }
+            guard FontResolver.isAvailable(open.family) else { throw .invalid("\(open.family) was fetched but CoreText cannot read it") }
+            family = open.family
+        } else {
+            let close = FieldPaths.closest(font, among: installedFamilies() + OpenFonts.all.map(\.family))
+            throw .missing("no font family \"\(font)\" on this machine or among the open fonts" + (close.map { " — did you mean \($0)?" } ?? "")
+                           + "; `design fonts` lists them, and a .ttf/.otf path works too")
         }
         registered.withLock { $0[font] = family }
         return family
@@ -77,5 +103,70 @@ public enum Fonts {
     private static func register(_ url: URL) {
         var error: Unmanaged<CFError>?
         _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error)
+    }
+
+    /// Whether the face `family` draws at `weight` may be embedded in a PDF
+    /// (its OS/2 embedding bits). The system face may.
+    public static func embeddable(family: String?, weight: String) -> Bool {
+        guard let family else { return true }
+        return FontTraits.embeddable(FontResolver.font(family: family, weight: weight, size: 12))
+    }
+
+    // MARK: Roles and sizes
+
+    /// The type a design is set in, with its faces chosen: the pairing's
+    /// first candidate for each role that is here or can be fetched. Faces
+    /// already pinned are kept.
+    static func pinned(_ typesetting: Typesetting?, usesRoles: Bool, fetcher: (any FontFetching)?) throws(DesignError) -> Typesetting? {
+        guard typesetting != nil || usesRoles else { return nil }
+        var type = typesetting ?? Typesetting(pairing: Pairings.fallback)
+        if type.display != nil && type.text != nil { return type }
+        let name = type.pairing ?? Pairings.fallback
+        guard let pairing = Pairings.named(name) else { throw .invalid(Pairings.refusal(name, at: "fonts.pairing")) }
+        let fetched: (OpenFont) -> Bool = { fetcher?.fetched($0) != nil }
+        if type.display == nil {
+            guard let face = Pairings.pick(pairing.display, fetchable: fetcher != nil, fetched: fetched) else {
+                throw .missing("no display face of the \(pairing.name) pairing is here: \(pairing.display.map(\.family).joined(separator: ", "))")
+            }
+            type.display = face
+        }
+        if type.text == nil {
+            guard let face = Pairings.pick(pairing.text, fetchable: fetcher != nil, fetched: fetched) else {
+                throw .missing("no text face of the \(pairing.name) pairing is here: \(pairing.text.map(\.family).joined(separator: ", "))")
+            }
+            type.text = face
+        }
+        type.pairing = pairing.name
+        if type.scale == nil { type.scale = pairing.scale }
+        if type.base == nil { type.base = pairing.base }
+        return type
+    }
+
+    /// The faces a pairing resolves to here: the first candidate for each
+    /// role that is installed, bundled, fetched — or, with a fetcher, can be.
+    public static func resolve(_ typesetting: Typesetting, fetcher: (any FontFetching)?) throws(DesignError) -> Typesetting {
+        try pinned(typesetting, usesRoles: true, fetcher: fetcher) ?? typesetting
+    }
+
+    /// The face, weight and size a text layer is drawn in.
+    static func face(for text: TextContent, typesetting: Typesetting?, folder: URL,
+                     fetcher: (any FontFetching)?) async throws(DesignError) -> ResolvedFace {
+        var font = text.font
+        var weight = text.weight
+        if let role = font.map({ $0.lowercased() }), roles.contains(role) {
+            guard let face = role == "display" ? typesetting?.display : typesetting?.text else {
+                throw .invalid("a text layer names the \(role) face, and the design has no fonts section to say which it is")
+            }
+            font = face.family
+            weight = weight ?? face.weight
+        }
+        let family = try await self.family(for: font, folder: folder, fetcher: fetcher)
+        return ResolvedFace(family: family, weight: weight ?? "bold", size: size(of: text, typesetting: typesetting))
+    }
+
+    /// A text layer's size in design units: its number, or its named step on the design's scale.
+    static func size(of text: TextContent, typesetting: Typesetting?) -> Double {
+        guard let step = text.step else { return text.size }
+        return step.size(scale: typesetting?.scale ?? 1.5, base: typesetting?.base ?? 30)
     }
 }

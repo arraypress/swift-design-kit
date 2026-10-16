@@ -40,7 +40,7 @@ struct RecipeTests {
     }
 
     @Test func wordsAndValuesOutsideTheirListsAreRefused() {
-        #expect(refusal(##"{"design": 1, "canvas": {"preset": "cover"}, "layers": [{"type": "text", "text": "x", "blend": "darken"}]}"##)?
+        #expect(refusal(##"{"design": 1, "canvas": {"preset": "cover"}, "layers": [{"type": "text", "text": "x", "blend": "dodge"}]}"##)?
             .contains("blend") == true)
         #expect(refusal(##"{"design": 1, "canvas": {"preset": "covr"}, "layers": []}"##)?.contains("did you mean cover") == true)
         #expect(refusal(##"{"design": 1, "canvas": {"preset": "cover"}, "layers": [{"type": "text", "text": "x", "opacity": 2}]}"##)?

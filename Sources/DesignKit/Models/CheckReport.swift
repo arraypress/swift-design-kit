@@ -19,13 +19,28 @@ public struct CheckReport: Codable, Equatable, Sendable {
     /// Each picture, and how far it is enlarged.
     public var sources: [SourceNote]
 
+    /// The palette roles found in the art.
+    public var palette: PaletteRoles?
+
+    /// The faces the words are set in (`family weight`), and the pairing they came from.
+    public var fonts: [String]
+    public var pairing: String?
+
+    /// The colours words and shapes are drawn in, besides the art's own.
+    public var colors: [String]
+
     /// No failures (warnings allowed).
     public var passed: Bool { !findings.contains { $0.level == .fail } }
 
-    public init(findings: [Finding], text: [TextMeasure], sources: [SourceNote]) {
+    public init(findings: [Finding], text: [TextMeasure], sources: [SourceNote], palette: PaletteRoles? = nil,
+                fonts: [String] = [], pairing: String? = nil, colors: [String] = []) {
         self.findings = findings
         self.text = text
         self.sources = sources
+        self.palette = palette
+        self.fonts = fonts
+        self.pairing = pairing
+        self.colors = colors
     }
 }
 
@@ -38,7 +53,8 @@ public struct Finding: Codable, Equatable, Sendable {
     }
 
     /// `contrast`, `read-back`, `clipped`, `safe-area`, `fit`, `print-size`,
-    /// `resolution`, `bleed`, `platform`, `unfilled`, `avoid`, `subject`.
+    /// `resolution`, `bleed`, `platform`, `unfilled`, `avoid`, `subject`,
+    /// `families`, `colors`, `embedding`.
     public var check: String
     public var level: Level
     /// The layer's path and id, when it is about one.

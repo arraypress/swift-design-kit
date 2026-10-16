@@ -44,6 +44,9 @@ public struct DesignServices: Sendable {
     /// Enlargement; `nil` leaves a small picture small (and the check says so).
     public var upscaler: (any ImageUpscaling)?
 
+    /// Fetches open fonts on first use; `nil` refuses an open font not already fetched.
+    public var fonts: (any FontFetching)?
+
     /// Where relative paths in the design (pictures, fonts, looks) are found.
     public var folder: URL
 
@@ -51,10 +54,12 @@ public struct DesignServices: Sendable {
     public var progress: (@Sendable (String) -> Void)?
 
     public init(generator: (any ImageGenerating)? = nil, upscaler: (any ImageUpscaling)? = nil,
+                fonts: (any FontFetching)? = nil,
                 folder: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
                 progress: (@Sendable (String) -> Void)? = nil) {
         self.generator = generator
         self.upscaler = upscaler
+        self.fonts = fonts
         self.folder = folder
         self.progress = progress
     }

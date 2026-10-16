@@ -22,15 +22,16 @@ let package = Package(
         .library(name: "DesignKitAI", targets: ["DesignKitAI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/arraypress/swift-canvas-kit.git", from: "0.5.1"),
+        .package(url: "https://github.com/arraypress/swift-canvas-kit.git", from: "0.6.0"),
         .package(url: "https://github.com/arraypress/swift-gradient-kit.git", from: "0.3.0"),
-        .package(url: "https://github.com/arraypress/swift-object-cutout.git", from: "1.2.1"),
+        .package(url: "https://github.com/arraypress/swift-object-cutout.git", from: "1.3.1"),
         .package(url: "https://github.com/arraypress/swift-media-kit.git", from: "0.1.0"),
         .package(url: "https://github.com/arraypress/swift-qr-kit.git", from: "1.1.0"),
         .package(url: "https://github.com/arraypress/swift-document-theme.git", from: "0.1.0"),
         .package(url: "https://github.com/arraypress/swift-recipe-kit.git", from: "0.3.1"),
         .package(url: "https://github.com/arraypress/swift-video-grade.git", from: "0.3.0"),
         .package(url: "https://github.com/arraypress/swift-legibility.git", from: "0.3.0"),
+        .package(url: "https://github.com/arraypress/swift-psd-kit.git", from: "0.3.0"),
         .package(url: "https://github.com/arraypress/swift-image-generation.git", from: "0.13.2"),
         .package(url: "https://github.com/arraypress/swift-upscale.git", from: "2.1.0"),
     ],
@@ -47,6 +48,7 @@ let package = Package(
                 .product(name: "RecipeKit", package: "swift-recipe-kit"),
                 .product(name: "VideoGradeLook", package: "swift-video-grade"),
                 .product(name: "Legibility", package: "swift-legibility"),
+                .product(name: "PSDKit", package: "swift-psd-kit"),
             ]
         ),
         .target(

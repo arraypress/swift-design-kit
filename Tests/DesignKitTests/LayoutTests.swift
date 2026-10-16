@@ -50,7 +50,7 @@ struct LayoutTests {
           {"type": "text", "id": "title", "text": "Title", "size": 60, "fit": "none", "valign": "top", "frame": {"anchor": "top", "height": 0.5}},
           {"type": "shape", "id": "rule", "shape": "rect", "fill": "#000000", "frame": {"anchor": "top", "height": 0.02, "below": "title", "gap": 0.05}}
         """#)
-        let placed = Layouter.place(design, geometry: design.canvas.geometry, families: [:])
+        let placed = Layouter.place(design, geometry: design.canvas.geometry, faces: [:])
         let lines = try #require(placed.fits["0"]?.linesBounds)
         let linesBottom = Double(design.canvas.geometry.pixelHeight) - lines.minY
         let rule = try #require(placed.frames["1"])
@@ -71,14 +71,14 @@ struct LayoutTests {
           {"type": "group", "frame": {"anchor": "top-left", "width": 0.5, "height": 0.5},
            "layers": [{"type": "shape", "shape": "rect", "fill": "#000000", "frame": {"anchor": "bottom-right", "width": 0.5, "height": 0.5}}]}
         """#)
-        let placed = Layouter.place(design, geometry: design.canvas.geometry, families: [:])
+        let placed = Layouter.place(design, geometry: design.canvas.geometry, faces: [:])
         let group = try #require(placed.frames["0"]), child = try #require(placed.frames["0.0"])
         #expect(child.maxX == group.maxX && child.maxY == group.maxY && child.width == group.width / 2)
     }
 
     @Test func backgroundsReachTheBleed() throws {
         let design = try Probe.design(##"{"design": 1, "canvas": {"preset": "a5"}, "layers": [{"type": "background", "fill": "#FFFFFF"}, {"type": "shape", "shape": "rect"}]}"##)
-        let placed = Layouter.place(design, geometry: design.canvas.geometry, families: [:])
+        let placed = Layouter.place(design, geometry: design.canvas.geometry, faces: [:])
         #expect(placed.frames["0"] == design.canvas.geometry.bleed)
         #expect(placed.frames["1"] == design.canvas.geometry.safe)
     }
@@ -90,8 +90,8 @@ struct LayoutTests {
 
     @Test func anAvoidingLayerMovesOffWhatItAvoids() throws {
         let design = try Probe.square(##"{"type": "text", "id": "t", "text": "Over the face", "size": 50, "frame": {"anchor": "top", "height": 0.3}, "avoid": ["faces"]}"##)
-        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], families: [:], sources: [])
-        let placed = Layouter.place(design, geometry: prepared.geometry, families: [:])
+        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], faces: [:], sources: [])
+        let placed = Layouter.place(design, geometry: prepared.geometry, faces: [:])
         let plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
         let face = CGRect(x: 0, y: 0, width: 400, height: 150)   // a face across the top
         let entry = Layouter.entries(design.layers)[0]
@@ -104,8 +104,8 @@ struct LayoutTests {
     @Test func aMovedTitleTakesItsAlignmentWithIt() throws {
         // Full width, set left at top-left: only right-aligning it moves its lines.
         let design = try Probe.square(##"{"type": "text", "id": "t", "text": "Slow", "size": 60, "align": "left", "valign": "top", "frame": {"anchor": "top-left", "height": 0.5}, "avoid": ["subject"]}"##)
-        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], families: [:], sources: [])
-        let placed = Layouter.place(design, geometry: prepared.geometry, families: [:])
+        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], faces: [:], sources: [])
+        let placed = Layouter.place(design, geometry: prepared.geometry, faces: [:])
         let plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
         let entry = Layouter.entries(design.layers)[0]
         // Something in the top-left quarter, and down the whole bottom half.
@@ -114,7 +114,7 @@ struct LayoutTests {
                                               prepared: prepared, moves: [:], plan: plan))
         let move = try #require(moved.move)
         #expect(move.anchor == .topRight && move.align == .right && move.valign == .top)
-        let after = Layouter.place(design, geometry: prepared.geometry, families: [:], moves: ["0": move])
+        let after = Layouter.place(design, geometry: prepared.geometry, faces: [:], moves: ["0": move])
         let lines = try #require(after.fits["0"]?.linesBounds)
         #expect(lines.minX > 200, "the words went right with the anchor: \(lines)")
     }
@@ -123,8 +123,8 @@ struct LayoutTests {
         // A subject down the middle, the words across the top: no anchor clears
         // at full width; a frame a third as wide, at the left, does.
         let design = try Probe.square(##"{"type": "text", "id": "t", "text": "Slow Signal", "size": 70, "min_size": 10, "max_lines": 2, "align": "left", "valign": "top", "frame": {"anchor": "top-left", "height": 0.5}, "avoid": ["subject"]}"##)
-        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], families: [:], sources: [])
-        let placed = Layouter.place(design, geometry: prepared.geometry, families: [:])
+        let prepared = PreparedDesign(design: design, geometry: design.canvas.geometry, pictures: [:], faces: [:], sources: [])
+        let placed = Layouter.place(design, geometry: prepared.geometry, faces: [:])
         let plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
         let entry = Layouter.entries(design.layers)[0]
         var mask = [Bool](repeating: false, count: 400 * 400)
@@ -132,7 +132,7 @@ struct LayoutTests {
         let moved = try #require(Planner.move(entry, obstacles: Self.obstacles([], mask: mask), prepared: prepared, moves: [:], plan: plan))
         let move = try #require(moved.move, Comment(rawValue: moved.note))
         #expect(move.anchor == .topLeft && move.width < 1, "\(move)")
-        let after = Layouter.place(design, geometry: prepared.geometry, families: [:], moves: ["0": move])
+        let after = Layouter.place(design, geometry: prepared.geometry, faces: [:], moves: ["0": move])
         let lines = try #require(after.fits["0"]?.linesBounds)
         #expect(lines.maxX <= 160, "the words stay left of the subject: \(lines)")
         #expect(moved.note.hasPrefix("narrowed at top-left to"), "\(moved.note)")

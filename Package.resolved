@@ -1,5 +1,5 @@
 {
-  "originHash" : "54e3a7c84b0001471261aa28d339bd41432eb19be199a2d99a54434fecd5c730",
+  "originHash" : "ba8cb3bf5092dc948747153fac1e28c9c245c99a2eeaee8813818d8a63de5575",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-canvas-kit.git",
       "state" : {
-        "revision" : "ccbfd15dacf85c3ad88288c416e4b5bdb07cfcd1",
-        "version" : "0.5.1"
+        "revision" : "1b865b1e448075d6cfd8e9af2f77d5026a8935d8",
+        "version" : "0.6.0"
       }
     },
     {
@@ -132,8 +132,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-object-cutout.git",
       "state" : {
-        "revision" : "f1308ff022faeeaa4d97e08a480e44cb4afc1f27",
-        "version" : "1.2.1"
+        "revision" : "f983b3761a19a44ee1b0ffb0bd5de4d016cd2af8",
+        "version" : "1.3.1"
+      }
+    },
+    {
+      "identity" : "swift-psd-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/arraypress/swift-psd-kit.git",
+      "state" : {
+        "revision" : "78b5f7a5c487e0c092b90d92cb27477ea00fa483",
+        "version" : "0.3.0"
       }
     },
     {

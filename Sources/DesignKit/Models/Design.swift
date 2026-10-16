@@ -25,14 +25,20 @@ public struct Design: Equatable, Sendable {
     /// `{slot}` markers, so changing a value here changes the words.
     public var vars: [String: String]
     public var grid: Grid
+    /// The type: a pairing, and the faces it resolved to (pinned when made).
+    public var fonts: Typesetting?
+    /// How the palette roles (`accent`, `dominant`…) are found from the art.
+    public var palette: PaletteSpec?
     public var layers: [Layer]
 
     public init(canvas: CanvasSpec, template: String? = nil, vars: [String: String] = [:],
-                grid: Grid = .standard, layers: [Layer]) {
+                grid: Grid = .standard, fonts: Typesetting? = nil, palette: PaletteSpec? = nil, layers: [Layer]) {
         self.canvas = canvas
         self.template = template
         self.vars = vars
         self.grid = grid
+        self.fonts = fonts
+        self.palette = palette
         self.layers = layers
     }
 }
@@ -49,18 +55,24 @@ public struct Template: Equatable, Sendable {
     /// The values it takes (`--var title=…`), each with a default.
     public var slots: [TemplateSlot]
     public var grid: Grid
+    /// The type pairing it is set in, unless the maker picks another.
+    public var pairing: String?
+    /// How its palette roles are found.
+    public var palette: PaletteSpec?
     /// The layers as written, `{slot}` markers and all: JSON, read strictly
     /// once the slots are filled (a marker can stand for a colour or a
     /// whole background, which only reads once it is one).
     public var layers: Data
 
     public init(name: String, summary: String, preset: String, slots: [TemplateSlot], grid: Grid = .standard,
-                layers: Data) {
+                pairing: String? = nil, palette: PaletteSpec? = nil, layers: Data) {
         self.name = name
         self.summary = summary
         self.preset = preset
         self.slots = slots
         self.grid = grid
+        self.pairing = pairing
+        self.palette = palette
         self.layers = layers
     }
 }

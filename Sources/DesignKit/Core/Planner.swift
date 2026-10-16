@@ -37,8 +37,12 @@ enum Planner {
         let geometry = prepared.geometry
         let scale = measuringScale(geometry)
         var moves: [String: TextMove] = [:]
-        var placed = Layouter.place(prepared.design, geometry: geometry, families: prepared.families)
+        var placed = Layouter.place(prepared.design, geometry: geometry, faces: prepared.faces)
         var plan = Plan(frames: placed.frames, fits: placed.fits, text: [:])
+        // The palette roles, from the art alone.
+        let art = Checker.render(prepared, plan: plan, scale: min(scale, 512 / Double(max(geometry.pixelWidth, geometry.pixelHeight))),
+                                 filter: Painter.Filter(artOnly: true))
+        plan.palette = ColorRoles.roles(from: art, spec: prepared.design.palette ?? .standard)
 
         let width = Int((Double(geometry.pixelWidth) * scale).rounded()), height = Int((Double(geometry.pixelHeight) * scale).rounded())
         guard let context = Bitmaps.context(width: width, height: height) else { return (plan, nil) }
@@ -59,7 +63,7 @@ enum Planner {
                         if let moved = move(entry, obstacles: obstacles, prepared: prepared, moves: moves, plan: plan) {
                             if let move = moved.move {
                                 moves[entry.path] = move
-                                placed = Layouter.place(prepared.design, geometry: geometry, families: prepared.families, moves: moves)
+                                placed = Layouter.place(prepared.design, geometry: geometry, faces: prepared.faces, moves: moves)
                                 plan.frames = placed.frames
                                 plan.fits = placed.fits
                                 decision.move = move
@@ -72,7 +76,16 @@ enum Planner {
                         }
                         plan.text[entry.path] = decision
                     }
-                    decideColors(text, path: entry.path, snapshot: snapshot, scale: scale, geometry: geometry, plan: &plan)
+                    // Words inside a group read against the group's earlier layers too (a label strip).
+                    var under = snapshot
+                    if entry.path != path, let nested = Bitmaps.context(width: width, height: height) {
+                        nested.draw(snapshot, in: CGRect(x: 0, y: 0, width: width, height: height))
+                        nested.scaleBy(x: scale, y: scale)
+                        Painter.draw(layer, path: path, prepared: prepared, plan: plan, context: nested, deviceScale: scale,
+                                     filter: Painter.Filter(drawnBefore: entry.path))
+                        under = nested.makeImage() ?? snapshot
+                    }
+                    decideColors(text, path: entry.path, snapshot: under, scale: scale, geometry: geometry, plan: &plan)
                 }
             }
             Painter.draw(layer, path: path, prepared: prepared, plan: plan, context: context, deviceScale: scale, filter: .all)
@@ -99,10 +112,26 @@ enum Planner {
             let picked = AutoColor.pick(over: range, art: snapshot)
             decision.color = picked.color
             decision.note = [decision.note, picked.note].compactMap { $0 }.joined(separator: "; ")
+        case .role(let role):
+            // The role's hue, lightened or darkened until the words read over
+            // what is under them — unless a plate will carry them.
+            let base = plan.palette?[role] ?? .white
+            if text.plate != nil {
+                decision.color = base
+            } else {
+                let units = (plan.fits[path]?.pointSize ?? text.size * geometry.unit) / geometry.unit
+                let target = units >= Checker.largeTextUnits ? Contrast.largeTextMinimum : Contrast.normalTextMinimum
+                decision.color = ColorRoles.readable(base, role: role, palette: plan.palette, over: range, target: target)
+                if decision.color != base {
+                    decision.note = [decision.note, "\(role.rawValue) \(base.hex) set as \(decision.color.hex) to read over the art"]
+                        .compactMap { $0 }.joined(separator: "; ")
+                }
+            }
         }
         if let plate = text.plate {
             switch plate.color {
             case .color(let color): decision.plate = color
+            case .role(let role): decision.plate = plan.palette?[role]
             case .auto: decision.plate = AutoColor.plate(text: decision.color.luminance, over: range)
             }
         }
@@ -121,7 +150,7 @@ enum Planner {
         switch layer.content {
         case .background, .image: true
         case .group(let children): children.contains(where: hasArt)
-        case .text, .shape, .qr: false
+        case .text, .shape, .qr, .texture: false
         }
     }
 
@@ -221,7 +250,7 @@ enum Planner {
             var trial = moves
             let move = Moves.move(text, declared: declared, to: anchor, width: width)
             trial[path] = move
-            let placed = Layouter.place(prepared.design, geometry: prepared.geometry, families: prepared.families, moves: trial)
+            let placed = Layouter.place(prepared.design, geometry: prepared.geometry, faces: prepared.faces, moves: trial)
             guard placed.fits[path]?.fits ?? true || !fitted,
                   clash(path, fits: placed.fits, frames: placed.frames, height: height) <= crowded + 1 else { return nil }
             let rects = lines(path, fits: placed.fits, frames: placed.frames, height: height)

@@ -14,39 +14,43 @@ import Foundation
 
 enum TextStyles {
 
-    /// The engine's style for `text`, drawn in `color` (already decided when
-    /// the layer asked for `auto`). `lettersOnly` strips everything but the
-    /// letters' fill — the mask the contrast check measures.
-    static func style(_ text: TextContent, family: String?, color: DesignColor, lettersOnly: Bool = false) -> TextStyle {
+    /// The engine's style for `text`, set in `face` (the system face, bold,
+    /// at its own size when `nil`) and drawn in `color` (already decided
+    /// when the layer asked for `auto` or a role); `plan` resolves the
+    /// colours its spans, stroke and plate name. `lettersOnly` strips
+    /// everything but the letters' fill — the mask the contrast check measures.
+    static func style(_ text: TextContent, face: ResolvedFace?, color: DesignColor, plan: Plan? = nil,
+                      lettersOnly: Bool = false) -> TextStyle {
+        let size = face?.size ?? text.size
         var style = TextStyle(
-            fontFamily: family,
-            weight: text.weight,
-            size: text.size,
+            fontFamily: face?.family,
+            weight: face?.weight ?? text.weight ?? "bold",
+            size: size,
             color: lettersOnly ? .white : color.slide,
-            accentColor: lettersOnly ? .white : text.accent?.slide,
-            mutedColor: lettersOnly ? .white : text.muted?.slide,
+            accentColor: lettersOnly ? .white : plan?.color(text.accent)?.slide,
+            mutedColor: lettersOnly ? .white : plan?.color(text.muted)?.slide,
             alignment: text.align.rawValue,
             lineHeight: text.lineHeight,
-            kerning: text.tracking / 1000 * text.size,
+            kerning: text.tracking / 1000 * size,
             uppercased: false,
             autoShrink: text.fit == .shrink,
-            minimumSize: text.minSize ?? min(text.size, max(8, text.size * 0.35)),
+            minimumSize: text.minSize ?? min(size, max(8, size * 0.35)),
             maxLines: text.maxLines,
             keepsWordsWhole: true)
         if !lettersOnly {
             if let gradient = text.gradient { style.gradientColors = gradient.map(\.slide) }
             if let stroke = text.stroke, stroke.width > 0 {
                 // The engine's stroke is a percentage of the point size.
-                style.strokeWidth = stroke.width / text.size * 100
+                style.strokeWidth = stroke.width / size * 100
                 style.strokeStyle = stroke.style == .hollow ? .hollow : .outlined
-                style.strokeColor = stroke.color.slide
+                style.strokeColor = (plan?.color(stroke.color) ?? .black).slide
             }
-            if let plate = text.plate, plate.perLine, case .color(let fill) = plate.color {
+            if let plate = text.plate, plate.perLine, let fill = plan?.color(plate.color) {
                 style.linePill = fill.slide
             }
         } else if text.stroke?.style == .hollow, let stroke = text.stroke {
             // Hollow letters have no fill: their outline is the ink.
-            style.strokeWidth = stroke.width / text.size * 100
+            style.strokeWidth = stroke.width / size * 100
             style.strokeStyle = .hollow
             style.strokeColor = .white
         }

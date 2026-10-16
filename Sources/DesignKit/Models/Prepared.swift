@@ -22,10 +22,20 @@ public struct PreparedDesign: Sendable {
     /// Pictures by layer: a background's finished plate (its frame's size),
     /// an image layer's picture (lifted when a cut-out), a QR code.
     let pictures: [String: PreparedPicture]
-    /// The family each text layer draws in (`nil`: the system face).
-    let families: [String: String]
+    /// The face, weight and size each text layer draws in.
+    let faces: [String: ResolvedFace]
     /// Where each picture came from and how far it is enlarged.
     public let sources: [SourceNote]
+}
+
+/// What a text layer is set in, resolved: roles through the pairing, named
+/// sizes through the type scale.
+struct ResolvedFace: Sendable, Equatable {
+    /// `nil`: the system face.
+    let family: String?
+    let weight: String
+    /// Design units.
+    let size: Double
 }
 
 /// One prepared picture.
@@ -64,6 +74,18 @@ public struct Plan: Sendable {
     public var text: [String: TextDecision]
     /// The art under text layers, keyed by which art layers it is.
     var art: [String: ArtLook] = [:]
+    /// The palette roles, from the art.
+    public var palette: PaletteRoles?
+
+    /// The colour `paint` stands for: a colour, a role from the palette;
+    /// `nil` for `auto` (decided per layer) or a role with no palette.
+    func color(_ paint: Paint?) -> DesignColor? {
+        switch paint {
+        case .color(let color)?: color
+        case .role(let role)?: palette?[role]
+        case .auto?, nil: nil
+        }
+    }
 }
 
 /// What was decided for one text layer.

@@ -29,11 +29,11 @@ public struct Shadow: Equatable, Sendable {
 
 /// A soft light round everything the layer draws.
 public struct Glow: Equatable, Sendable {
-    public var color: DesignColor
+    public var color: Paint
     /// How far it reaches, in design units.
     public var radius: Double
 
-    public init(color: DesignColor, radius: Double = 20) {
+    public init(color: Paint, radius: Double = 20) {
         self.color = color
         self.radius = radius
     }
@@ -41,16 +41,19 @@ public struct Glow: Equatable, Sendable {
 
 /// An outline: round text, a mask's shape, a shape, or a cut-out's edge.
 public struct Stroke: Equatable, Sendable {
-    public var color: DesignColor
+    public var color: Paint
     /// Thickness, in design units.
     public var width: Double
     /// Text only: a keyline round filled letters, or the outline alone.
     public var style: StrokeStyle
+    /// Dashes and gaps, in design units (`[12, 8]`); shapes and lines only.
+    public var dash: [Double]?
 
-    public init(color: DesignColor, width: Double = 4, style: StrokeStyle = .outline) {
+    public init(color: Paint, width: Double = 4, style: StrokeStyle = .outline, dash: [Double]? = nil) {
         self.color = color
         self.width = width
         self.style = style
+        self.dash = dash
     }
 }
 
@@ -58,7 +61,7 @@ public struct Stroke: Equatable, Sendable {
 public struct Plate: Equatable, Sendable {
     /// The panel's colour, or `auto`: black or white at the least opacity
     /// that lifts the words to WCAG 4.5:1 over what is behind them.
-    public var color: TextColor
+    public var color: Paint
     /// Room round the lines, in design units.
     public var padding: Double
     /// Corner radius, in design units.
@@ -66,7 +69,7 @@ public struct Plate: Equatable, Sendable {
     /// One panel per line (the highlighter idiom) instead of one for the block.
     public var perLine: Bool
 
-    public init(color: TextColor = .auto, padding: Double = 24, radius: Double = 8, perLine: Bool = false) {
+    public init(color: Paint = .auto, padding: Double = 24, radius: Double = 8, perLine: Bool = false) {
         self.color = color
         self.padding = padding
         self.radius = radius

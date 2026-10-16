@@ -30,8 +30,129 @@ enum Shapes {
             path.addLines(between: ends.map { point($0, in: frame) })
             return path
         case .polygon: return polygon(shape.points ?? [], in: frame)
-        case .star: return star(points: shape.count, inner: shape.inner, in: frame)
+        case .star, .burst: return star(points: shape.count, inner: shape.inner, in: frame)
+        case .frame:
+            return frameRect(frame, inset: shape.inset * unit + lineWidth(shape, unit: unit) / 2, radius: shape.radius * unit)
+        case .doubleFrame:
+            let first = shape.inset * unit + lineWidth(shape, unit: unit) / 2
+            let path = CGMutablePath()
+            path.addPath(frameRect(frame, inset: first, radius: shape.radius * unit))
+            path.addPath(frameRect(frame, inset: first + shape.gap * unit + lineWidth(shape, unit: unit),
+                                   radius: max(0, shape.radius * unit - shape.gap * unit)))
+            return path
+        case .brackets: return brackets(frame.insetBy(dx: shape.inset * unit + lineWidth(shape, unit: unit) / 2,
+                                                      dy: shape.inset * unit + lineWidth(shape, unit: unit) / 2),
+                                        length: shape.length)
+        case .filmStrip: return filmStrip(frame, holes: shape.count)
+        case .arrow:
+            let ends = (shape.points ?? [[0, 0.5], [1, 0.5]]).map { point($0, in: frame) }
+            let path = CGMutablePath()
+            path.addLines(between: ends)
+            return path
+        case .ring:
+            let path = CGMutablePath()
+            path.addEllipse(in: frame)
+            path.addEllipse(in: frame.insetBy(dx: frame.width * (1 - shape.inner) / 2, dy: frame.height * (1 - shape.inner) / 2))
+            return path
+        case .badge: return badge(frame, scallops: shape.count, inner: shape.inner)
+        case .divider:
+            let path = CGMutablePath()
+            let d = min(frame.height, frame.width * 0.04) / 2
+            path.move(to: CGPoint(x: frame.minX, y: frame.midY))
+            path.addLine(to: CGPoint(x: frame.midX - d * 2.2, y: frame.midY))
+            path.move(to: CGPoint(x: frame.midX + d * 2.2, y: frame.midY))
+            path.addLine(to: CGPoint(x: frame.maxX, y: frame.midY))
+            return path
         }
+    }
+
+    /// The width a shape's lines are drawn at, pixels.
+    static func lineWidth(_ shape: ShapeContent, unit: Double) -> Double {
+        (shape.stroke?.width ?? 4) * unit
+    }
+
+    /// Shapes drawn as lines only, never filled.
+    static func isLines(_ kind: ShapeKind) -> Bool {
+        [.line, .frame, .doubleFrame, .brackets, .arrow, .divider].contains(kind)
+    }
+
+    /// Shapes whose holes are cut by the even-odd rule.
+    static func isEvenOdd(_ kind: ShapeKind) -> Bool { [.filmStrip, .ring].contains(kind) }
+
+    static func frameRect(_ frame: CGRect, inset: Double, radius: Double) -> CGPath {
+        let box = frame.insetBy(dx: inset, dy: inset)
+        guard box.width > 0, box.height > 0 else { return CGMutablePath() }
+        return radius > 0 ? rounded(box, radius: max(0, radius - inset)) : CGPath(rect: box, transform: nil)
+    }
+
+    /// An L at each corner, its arms `length` of the shorter side.
+    static func brackets(_ box: CGRect, length: Double) -> CGPath {
+        let arm = min(box.width, box.height) * length
+        let path = CGMutablePath()
+        for (x, dx) in [(box.minX, 1.0), (box.maxX, -1.0)] {
+            for (y, dy) in [(box.minY, 1.0), (box.maxY, -1.0)] {
+                path.move(to: CGPoint(x: x + dx * arm, y: y))
+                path.addLine(to: CGPoint(x: x, y: y))
+                path.addLine(to: CGPoint(x: x, y: y + dy * arm))
+            }
+        }
+        return path
+    }
+
+    /// A strip's edges: a band top and bottom, each with `holes` sprocket holes.
+    static func filmStrip(_ frame: CGRect, holes: Int) -> CGPath {
+        let path = CGMutablePath()
+        let band = min(frame.height * 0.14, frame.width * 0.09)
+        let count = max(2, holes)
+        let pitch = frame.width / Double(count)
+        let hole = CGSize(width: pitch * 0.5, height: band * 0.5)
+        for y in [frame.minY, frame.maxY - band] {
+            path.addRect(CGRect(x: frame.minX, y: y, width: frame.width, height: band))
+            for i in 0..<count {
+                let r = CGRect(x: frame.minX + pitch * (Double(i) + 0.25), y: y + (band - hole.height) / 2,
+                               width: hole.width, height: hole.height)
+                path.addPath(CGPath(roundedRect: r, cornerWidth: hole.height * 0.25, cornerHeight: hole.height * 0.25, transform: nil))
+            }
+        }
+        return path
+    }
+
+    /// A seal: a disc `inner` of the box with `scallops` round bumps on its rim.
+    static func badge(_ frame: CGRect, scallops: Int, inner: Double) -> CGPath {
+        let path = CGMutablePath()
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let rx = frame.width / 2, ry = frame.height / 2
+        let core = inner
+        path.addEllipse(in: CGRect(x: center.x - rx * core, y: center.y - ry * core, width: 2 * rx * core, height: 2 * ry * core))
+        let count = max(6, scallops)
+        let bump = (1 - core) + core * sin(.pi / Double(count))
+        for i in 0..<count {
+            let angle = Double.pi / 2 + Double(i) * 2 * .pi / Double(count)
+            let cx = center.x + cos(angle) * rx * (1 - bump), cy = center.y + sin(angle) * ry * (1 - bump)
+            path.addEllipse(in: CGRect(x: cx - rx * bump, y: cy - ry * bump, width: 2 * rx * bump, height: 2 * ry * bump))
+        }
+        return path
+    }
+
+    /// An arrow's head at the last point of `ends`, `size` long.
+    static func arrowHead(from: CGPoint, to: CGPoint, size: Double) -> CGPath {
+        let angle = atan2(to.y - from.y, to.x - from.x)
+        let path = CGMutablePath()
+        path.move(to: to)
+        path.addLine(to: CGPoint(x: to.x - cos(angle - 0.45) * size, y: to.y - sin(angle - 0.45) * size))
+        path.addLine(to: CGPoint(x: to.x - cos(angle + 0.45) * size, y: to.y - sin(angle + 0.45) * size))
+        path.closeSubpath()
+        return path
+    }
+
+    /// The divider's centre diamond.
+    static func diamond(in frame: CGRect) -> CGPath {
+        let d = min(frame.height, frame.width * 0.04) / 2
+        let path = CGMutablePath()
+        path.addLines(between: [CGPoint(x: frame.midX, y: frame.midY + d), CGPoint(x: frame.midX + d, y: frame.midY),
+                                CGPoint(x: frame.midX, y: frame.midY - d), CGPoint(x: frame.midX - d, y: frame.midY)])
+        path.closeSubpath()
+        return path
     }
 
     /// The outline a mask clips to.

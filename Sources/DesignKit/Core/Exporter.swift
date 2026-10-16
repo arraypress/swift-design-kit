@@ -19,6 +19,8 @@ public enum OutputFormat: String, DesignChoice {
     case png
     case jpeg
     case pdf
+    /// Layered Photoshop: one layer per design layer.
+    case psd
 
     /// The format a file name asks for.
     public static func of(_ url: URL) -> OutputFormat? {
@@ -26,6 +28,7 @@ public enum OutputFormat: String, DesignChoice {
         case "png": .png
         case "jpg", "jpeg": .jpeg
         case "pdf": .pdf
+        case "psd": .psd
         default: nil
         }
     }
@@ -43,6 +46,7 @@ public enum Exporter {
         case .png: data = try encode(rendered.image, type: .png, quality: nil)
         case .jpeg: data = try encode(flattened(rendered.image), type: .jpeg, quality: quality)
         case .pdf: data = try pdf(rendered)
+        case .psd: data = try LayeredExport.psd(rendered)
         }
         do { try data.write(to: url, options: .atomic) } catch {
             throw .failed("could not write \(url.path): \(error.localizedDescription)")
@@ -115,7 +119,13 @@ public enum Exporter {
         context.translateBy(x: slug, y: slug)
         context.scaleBy(x: points, y: points)
         context.clip(to: CGRect(x: 0, y: 0, width: geometry.pixelWidth, height: geometry.pixelHeight))
-        Painter.draw(prepared, plan: rendered.plan, in: context, deviceScale: points)
+        // Words in a face whose licence bits forbid embedding are drawn as pictures.
+        var filter = Painter.Filter.all
+        filter.textAsPictures = Set(prepared.faces.compactMap { path, face in
+            guard let family = face.family, !Fonts.embeddable(family: family, weight: face.weight) else { return nil }
+            return path
+        })
+        Painter.draw(prepared, plan: rendered.plan, in: context, deviceScale: points, filter: filter)
         context.restoreGState()
         if marks { cropMarks(trim: trimBox, bleed: bleed, in: context) }
         context.endPDFPage()
