@@ -1,5 +1,5 @@
 {
-  "originHash" : "8dfd39d4f5cb080b954852ce139be63efffb9924528b335d85a4e27aa83178ac",
+  "originHash" : "2ea318de97823e06c02d986600c27a9479d93d21a86a5b82cd991a38237953de",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-legibility.git",
       "state" : {
-        "revision" : "8ae4e647b7c63647f39a94c470f8483a7ae03894",
-        "version" : "0.3.0"
+        "revision" : "dc4e2de6fe23c6c3971ddf49cdc8d40fd1098c40",
+        "version" : "0.3.2"
       }
     },
     {
@@ -150,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-object-cutout.git",
       "state" : {
-        "revision" : "27509fa5e2bbf5e6f9fb4291898383ad425a061f",
-        "version" : "1.4.1"
+        "revision" : "4b524abf8f5e2ced7b1f85137fb0f6674a36ff01",
+        "version" : "1.5.0"
       }
     },
     {

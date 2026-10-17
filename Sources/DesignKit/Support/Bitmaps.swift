@@ -84,4 +84,18 @@ extension Bitmaps {
         return Array(UnsafeBufferPointer(start: data.bindMemory(to: UInt8.self, capacity: image.width * image.height * 4),
                                          count: image.width * image.height * 4))
     }
+
+    /// The bytes drawn so far in a context made by ``context(width:height:)``, top row first.
+    static func bytes(of context: CGContext) -> [UInt8]? {
+        guard let data = context.data, context.bytesPerRow == context.width * 4 else { return nil }
+        let count = context.width * context.height * 4
+        return Array(UnsafeBufferPointer(start: data.bindMemory(to: UInt8.self, capacity: count), count: count))
+    }
+
+    /// `draw` run into a fresh bitmap, as bytes.
+    static func bytes(width: Int, height: Int, _ draw: (CGContext) -> Void) -> [UInt8]? {
+        guard let context = context(width: width, height: height) else { return nil }
+        draw(context)
+        return bytes(of: context)
+    }
 }

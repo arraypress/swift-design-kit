@@ -47,22 +47,16 @@ public enum Animator {
         else { throw .failed("the art and the words could not be drawn apart") }
 
         var pinned = motion
-        var near: CGImage?
-        var far = art
+        var layered: LayeredParallax?
         if motion.kind == .parallax {
             guard let depth = services.depth, let inpainter = services.inpainter else {
                 throw .modelMissing("a parallax loop needs the depth and fill models (img's Depth Anything and LaMa)")
             }
-            services.progress?("finding the art's depth")
-            let nearness = try await depth.nearness(of: art)
-            guard let (nearLayer, hole) = Parallax.split(art, nearness: nearness, grow: motion.amount * Double(width) * 0.6) else {
-                throw .failed("the art's depth could not be split")
-            }
-            services.progress?("filling what the near part uncovers")
-            far = try await inpainter.filled(art, mask: hole)
-            near = nearLayer
+            layered = try await LayeredParallax.make(art: art, amount: motion.amount, frames: motion.frameCount, depth: depth,
+                                                     inpainter: inpainter, services: services)
             pinned.depthModel = depth.pin
             pinned.fillModel = inpainter.pin
+            pinned.subjectModel = layered?.subject != nil ? services.subject?.pin : nil
         }
 
         let frames = motion.frameCount
@@ -93,13 +87,32 @@ public enum Animator {
         var steps: [Double] = []
         var first: [UInt8]?, previous: [UInt8]?
         var seam = 0.0
+        var integrity: Double?, leaked: Int?, recut: Double?
+        let recutFrames: Set<Int> = [0, frames / 3, 2 * frames / 3]
         for index in 0..<frames {
             let phase = Double(index) / Double(frames)
+            var scene: [UInt8]?, sceneImage: CGImage?
+            let measuring = layered?.subject != nil
             guard let frame = Bitmaps.image(width: width, height: height, { context in
-                Frame.draw(phase: phase, motion: motion, far: far, near: near, overlay: overlay, grain: grains.isEmpty ? nil : grains[index % grains.count],
-                           specks: specks, size: size, context: context)
+                Frame.draw(phase: phase, motion: motion, far: art, layered: layered, overlay: overlay,
+                           grain: grains.isEmpty ? nil : grains[index % grains.count], specks: specks, size: size, context: context,
+                           afterArt: measuring ? { context in
+                               scene = Bitmaps.bytes(of: context)
+                               if recutFrames.contains(index) { sceneImage = context.makeImage() }
+                           } : nil)
             }) else { throw .failed("frame \(index) could not be drawn") }
             try writer.append(frame, at: index)
+            // The subject, alone by its one transform, against what the frame shows.
+            if let layered, let scene, let alone = Bitmaps.bytes(width: width, height: height, { layered.drawSubject(phase: phase, context: $0) }) {
+                if let measure = SubjectIntegrity.measure(scene: scene, subject: alone, width: width, height: height) {
+                    integrity = min(integrity ?? 1, measure.iou)
+                    leaked = max(leaked ?? 0, measure.leaked)
+                }
+                if let sceneImage, let matting = services.subject, let again = try await matting.subject(of: sceneImage),
+                   let fitted = scaled(again, width, height), let bytes = Pixels.rgba(of: fitted), let iou = SubjectIntegrity.iou(bytes, alone) {
+                    recut = min(recut ?? 1, iou)
+                }
+            }
             guard let small = scaled(frame, mw, mh), let bytes = Pixels.rgba(of: small) else { continue }
             if let previous { steps.append(Frame.difference(previous, bytes)) }
             if first == nil { first = bytes }
@@ -132,10 +145,53 @@ public enum Animator {
                                         fix: "a plate, a scrim, less movement (amount), or fewer leaks"))
             }
         }
+        var parallax: ParallaxReport?
+        if let layered {
+            let report = ParallaxReport(planes: layered.planes.count, subject: layered.subject != nil,
+                                        integrity: integrity.map { ($0 * 1000).rounded(.down) / 1000 }, leaked: leaked,
+                                        recut: recut.map { ($0 * 1000).rounded() / 1000 }, reveal: layered.reveal, limited: layered.limited)
+            findings += Self.findings(report, amount: motion.amount, short: Double(min(width, height)))
+            parallax = report
+        }
         return AnimationReport(file: url.path, width: width, height: height, frames: frames, seconds: motion.seconds, fps: motion.fps,
                                motion: pinned, seam: (ratio * 100).rounded() / 100,
                                lowestContrast: lowest.mapValues { ($0 * 100).rounded() / 100 },
-                               readBack: reads.mapValues { ($0 * 100).rounded() / 100 }, findings: findings)
+                               readBack: reads.mapValues { ($0 * 100).rounded() / 100 }, parallax: parallax, findings: findings)
+    }
+
+    /// The lowest share of the subject's silhouette that must show the subject on every frame.
+    public static let integrityLimit = 0.98
+
+    /// A re-cut subject matching its moved mask less than this is worth a look.
+    public static let recutLimit = 0.85
+
+    /// What a layered parallax's measures say.
+    static func findings(_ report: ParallaxReport, amount: Double, short: Double) -> [Finding] {
+        var findings: [Finding] = []
+        if !report.subject {
+            findings.append(Finding(check: "subject", level: .warn, message: "no subject was lifted out, so only the background planes move",
+                                    fix: "use zoom or drift, or a picture with a clear subject"))
+        }
+        if let integrity = report.integrity, integrity < integrityLimit {
+            findings.append(Finding(check: "subject", level: .fail,
+                                    message: "the subject breaks up as it moves: on one frame only \(Int((integrity * 100).rounded(.down)))% of its outline shows it",
+                                    fix: "report it — the subject is meant to move as one piece"))
+        }
+        if let leaked = report.leaked, leaked > 0 {
+            findings.append(Finding(check: "subject", level: .fail, message: "background shows through the subject on some frame (\(leaked) pixels)",
+                                    fix: "report it — the subject is drawn whole over the planes"))
+        }
+        if let recut = report.recut, recut < recutLimit {
+            findings.append(Finding(check: "subject", level: .warn,
+                                    message: "the subject cut again from the moving frames matches its outline only \(Int((recut * 100).rounded()))%",
+                                    fix: "look at the loop; a smaller amount moves it less"))
+        }
+        if report.limited {
+            findings.append(Finding(check: "motion", level: .warn,
+                                    message: "the move was held to \(Int(report.reveal.rounded())) px of slide (amount \(amount) asked for more) so the fill behind the subject stays small",
+                                    fix: "a smaller amount"))
+        }
+        return findings
     }
 
     static func scaled(_ image: CGImage?, _ width: Int, _ height: Int) -> CGImage? {
@@ -161,6 +217,8 @@ public struct AnimationReport: Codable, Equatable, Sendable {
     public var lowestContrast: [String: Double]
     /// Each text layer's lowest read-back over three frames.
     public var readBack: [String: Double]
+    /// For a parallax: its planes and whether the subject stayed whole.
+    public var parallax: ParallaxReport?
     public var findings: [Finding]
     public var passed: Bool { !findings.contains { $0.level == .fail } }
 }
@@ -172,8 +230,8 @@ extension Array {
 /// One frame of a loop.
 enum Frame {
 
-    static func draw(phase: Double, motion: MotionSpec, far: CGImage, near: CGImage?, overlay: CGImage, grain: CGImage?,
-                     specks: [Particles.Speck], size: CGSize, context: CGContext) {
+    static func draw(phase: Double, motion: MotionSpec, far: CGImage, layered: LayeredParallax?, overlay: CGImage, grain: CGImage?,
+                     specks: [Particles.Speck], size: CGSize, context: CGContext, afterArt: ((CGContext) -> Void)? = nil) {
         let full = CGRect(origin: .zero, size: size)
         let a = motion.amount
         let turn = 2 * Double.pi * phase
@@ -185,11 +243,14 @@ enum Frame {
             let grown = full.insetBy(dx: -size.width * a, dy: -size.height * a)
             context.draw(far, in: grown.offsetBy(dx: size.width * a * 0.9 * sin(turn), dy: size.height * a * 0.45 * sin(2 * turn)))
         case .parallax:
-            let grown = full.insetBy(dx: -size.width * a, dy: -size.height * a)
-            let camera = CGVector(dx: size.width * a * 0.5 * cos(turn), dy: size.width * a * 0.5 * sin(turn))
-            context.draw(far, in: grown.offsetBy(dx: camera.dx * 0.3, dy: camera.dy * 0.3))
-            if let near { context.draw(near, in: grown.offsetBy(dx: camera.dx, dy: camera.dy)) }
+            if let layered {
+                layered.drawPlanes(phase: phase, context: context)
+                layered.drawSubject(phase: phase, context: context)
+            } else {
+                context.draw(far, in: full)
+            }
         }
+        afterArt?(context)
         if motion.leaks > 0 { leaks(phase: phase, strength: motion.leaks, seed: motion.seed, size: size, context: context) }
         if !specks.isEmpty { Particles.draw(specks, phase: phase, size: size, context: context) }
         if let grain, motion.grain > 0 {
@@ -259,41 +320,6 @@ enum Particles {
             context.fillEllipse(in: CGRect(x: x * size.width - radius, y: y * size.height - radius, width: radius * 2, height: radius * 2))
         }
         context.restoreGState()
-    }
-}
-
-/// The art split by depth: the near part with soft edges, and the hole it leaves, grown, for the fill.
-enum Parallax {
-    static func split(_ art: CGImage, nearness: [Float], grow: Double) -> (near: CGImage, hole: CGImage)? {
-        let width = art.width, height = art.height
-        guard nearness.count == width * height else { return nil }
-        // The near part: the nearest third of the picture by area, as a mask.
-        let sorted = nearness.sorted()
-        let threshold = sorted[Int(Double(sorted.count) * 0.68)]
-        let maskBytes = nearness.map { $0 >= threshold ? UInt8(255) : UInt8(0) }
-        guard let provider = CGDataProvider(data: Data(maskBytes) as CFData),
-              let mask = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: width,
-                                 space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0), provider: provider,
-                                 decode: nil, shouldInterpolate: false, intent: .defaultIntent) else { return nil }
-        let base = CIImage(cgImage: mask)
-        let extent = base.extent
-        // Soft edge for the near layer; grown by the movement for the hole, so the fill covers what can show.
-        let soft = base.applyingGaussianBlur(sigma: 2).cropped(to: extent)
-        let grown = base.applyingFilter("CIMorphologyMaximum", parameters: ["inputRadius": max(2, grow)]).applyingGaussianBlur(sigma: 2).cropped(to: extent)
-        guard let softMask = Bitmaps.render(soft, extent: extent), let holeMask = Bitmaps.render(grown, extent: extent),
-              let near = Bitmaps.image(width: width, height: height, { context in
-                  context.clip(to: CGRect(x: 0, y: 0, width: width, height: height), mask: grayscale(softMask) ?? softMask)
-                  context.draw(art, in: CGRect(x: 0, y: 0, width: width, height: height))
-              }) else { return nil }
-        return (near, holeMask)
-    }
-
-    /// An RGB mask as one grey channel (CoreGraphics clips by a grey image's values).
-    static func grayscale(_ image: CGImage) -> CGImage? {
-        guard let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width,
-                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
-        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
-        return context.makeImage()
     }
 }
 
