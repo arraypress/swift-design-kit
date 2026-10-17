@@ -419,10 +419,11 @@ macOS 27 / iOS 27, because the AI product runs on Core AI. Swift 6.2. Made
 backgrounds use the models `imagine` installs (FLUX.2 Klein 4B, SANA Sprint
 1.6B). Core AI compiles a model per program the first time that program
 loads it, so the first made background in a new tool takes a few minutes.
-The engine's own code imports no Core AI, but swift-object-cutout 1.4
-(BiRefNet subject mattes) does, unconditionally, so since 0.4 `DesignKit` no
-longer builds for the iOS Simulator (its SDK has no Core AI; measured with
-xcodebuild). It did with object-cutout 1.3. The AI product never did.
+The engine's own code imports no Core AI; swift-object-cutout (BiRefNet
+subject mattes) compiles its Core AI path only where the SDK has it, from
+1.4.1, so `DesignKit` builds for the iOS Simulator (checked with xcodebuild)
+and lifts subjects with Vision there. The AI product (`DesignKitAI`) is
+macOS / iOS device only.
 
 ## License
 

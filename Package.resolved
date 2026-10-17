@@ -1,5 +1,5 @@
 {
-  "originHash" : "1eaca2da046d9c0711b8272c93961d6e32aa7ba5c5cbdef41ed8b3477a1d0d73",
+  "originHash" : "8dfd39d4f5cb080b954852ce139be63efffb9924528b335d85a4e27aa83178ac",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -150,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/arraypress/swift-object-cutout.git",
       "state" : {
-        "revision" : "ec6ef0047a3492deac52dfabf0fd8c7802c53d18",
-        "version" : "1.4.0"
+        "revision" : "27509fa5e2bbf5e6f9fb4291898383ad425a061f",
+        "version" : "1.4.1"
       }
     },
     {
