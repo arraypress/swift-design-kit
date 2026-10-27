@@ -16,6 +16,7 @@ import CoreGraphics
 import Foundation
 import Legibility
 
+/// The blind checks run on every make, measured on the drawn pixels.
 public enum Checker {
 
     /// Type at least this many design units tall is large (WCAG's 3:1).

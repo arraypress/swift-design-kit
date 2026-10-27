@@ -20,6 +20,7 @@ import Foundation
 import RecipeKit
 import Synchronization
 
+/// A text layer's `font` resolved to a family CoreText can draw, and registered.
 public enum Fonts {
 
     /// The bundled families: the name a design uses and the files that make it.

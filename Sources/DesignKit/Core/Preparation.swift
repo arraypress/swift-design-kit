@@ -20,6 +20,7 @@ import RecipeKit
 import VideoGrade
 import VideoGradeLook
 
+/// Everything a design takes from outside, fetched and made once before drawing.
 public enum Preparation {
 
     /// Enlargement past this asks for an upscale (when one is allowed).

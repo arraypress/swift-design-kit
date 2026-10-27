@@ -13,6 +13,7 @@
 import CoreText
 import Foundation
 
+/// Every face a design can name, listed with its styles, category and feel.
 public enum FontCatalog {
 
     /// Installed families (hidden system faces left out), bundled faces and

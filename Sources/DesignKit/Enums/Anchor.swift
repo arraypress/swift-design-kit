@@ -9,14 +9,23 @@ import Foundation
 
 /// Which point of its area a layer's frame holds on to.
 public enum Anchor: String, DesignChoice {
+    /// The top-left corner.
     case topLeft = "top-left"
+    /// The middle of the top edge.
     case top
+    /// The top-right corner.
     case topRight = "top-right"
+    /// The middle of the left edge.
     case left
+    /// The centre.
     case center
+    /// The middle of the right edge.
     case right
+    /// The bottom-left corner.
     case bottomLeft = "bottom-left"
+    /// The middle of the bottom edge.
     case bottom
+    /// The bottom-right corner.
     case bottomRight = "bottom-right"
 
     /// `0` left, `0.5` centre, `1` right.

@@ -12,6 +12,7 @@ import CanvasKit
 import CoreGraphics
 import Foundation
 
+/// The same design over several background seeds, and a contact sheet of them.
 public enum Variants {
 
     /// `design` with its first background's seed set to each of `seeds`.

@@ -19,6 +19,7 @@ public struct CanvasSpec: Equatable, Sendable {
 
     /// The finished (trimmed) size, in pixels.
     public var width: Int
+    /// The finished (trimmed) height, in pixels.
     public var height: Int
 
     /// Pixels per inch, for print; `nil` for a screen.
@@ -34,6 +35,7 @@ public struct CanvasSpec: Equatable, Sendable {
     /// Print crop marks in the PDF.
     public var cropMarks: Bool
 
+    /// A page of `width`×`height` pixels.
     public init(preset: String? = nil, width: Int, height: Int, dpi: Double? = nil, bleed: Int = 0,
                 safe: Insets = Insets(uniform: 0.06), cropMarks: Bool = false) {
         self.preset = preset
@@ -43,25 +45,5 @@ public struct CanvasSpec: Equatable, Sendable {
         self.bleed = bleed
         self.safe = safe
         self.cropMarks = cropMarks
-    }
-}
-
-/// Insets as fractions: top and bottom of the height, left and right of the width.
-public struct Insets: Equatable, Sendable {
-    public var top: Double
-    public var bottom: Double
-    public var left: Double
-    public var right: Double
-
-    public init(top: Double, bottom: Double, left: Double, right: Double) {
-        self.top = top
-        self.bottom = bottom
-        self.left = left
-        self.right = right
-    }
-
-    /// The same fraction on every side.
-    public init(uniform value: Double) {
-        self.init(top: value, bottom: value, left: value, right: value)
     }
 }

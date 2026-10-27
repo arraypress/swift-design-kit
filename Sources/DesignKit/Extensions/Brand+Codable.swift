@@ -15,6 +15,7 @@ extension Brand: Codable {
         case logoWidth = "logo_width"
     }
 
+    /// Reads it as a brand file writes it; an unknown key is refused with the close one.
     public init(from decoder: any Decoder) throws {
         try decoder.refuseUnknownKeys(CodingKeys.self, noun: "brand")
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -34,6 +35,7 @@ extension Brand: Codable {
                   logoWidth: try c.number(.logoWidth, in: 0.03...0.6, or: 0.14))
     }
 
+    /// Writes it as a brand file holds it.
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(name, forKey: .name)

@@ -4,26 +4,28 @@
 //
 //  Created by David Sherlock on 2026.
 //
-//  Depth and fill for a parallax loop, on this machine: Depth Anything V2
-//  Small (Apache-2.0, on Core AI, the export `img depth` installs) and LaMa
-//  (big-lama, Apache-2.0, the package `img erase` installs). Both load once
-//  and are asked once per loop.
+//  Depth for a parallax loop, on this machine: Depth Anything V2 Small
+//  (Apache-2.0, on Core AI, the export `img depth` installs). It loads once
+//  and is asked once per loop.
 //
 
 import CoreGraphics
 import DepthEstimator
 import DesignKit
 import Foundation
-import Inpaint
 
+/// Depth Anything V2 Small on this machine, behind the engine's `DepthEstimating`.
 public actor MachineDepth: DepthEstimating {
 
+    /// The model, as a parallax loop pins it.
     public nonisolated let pin = "depth-anything-v2-small (arraypress/img-depth-anything)"
     private let modelURL: URL
     private var estimator: DepthEstimator?
 
+    /// The depth model at `modelURL`, loaded on first use.
     public init(modelURL: URL) { self.modelURL = modelURL }
 
+    /// Relative nearness for every pixel of `image`, `0…1` (1 nearest), at the picture's own size.
     public func nearness(of image: CGImage) async throws(DesignError) -> [Float] {
         do {
             let model: DepthEstimator
@@ -40,28 +42,6 @@ public actor MachineDepth: DepthEstimating {
             throw error
         } catch {
             throw .failed("the depth could not be found: \(error)")
-        }
-    }
-}
-
-public actor MachineInpainter: Inpainting {
-
-    public nonisolated let pin = "big-lama@ef3cdb380b3978f25ec5371b42c0dbbb2f4e5fed (arraypress/erase-lama)"
-    private let modelURL: URL
-    private var inpainter: LaMaInpainter?
-
-    public init(modelURL: URL) { self.modelURL = modelURL }
-
-    public func filled(_ image: CGImage, mask: CGImage) async throws(DesignError) -> CGImage {
-        do {
-            let model: LaMaInpainter
-            if let inpainter { model = inpainter } else {
-                model = try LaMaInpainter(modelURL: modelURL)
-                inpainter = model
-            }
-            return try model.erase(image, mask: mask, feather: 4)
-        } catch {
-            throw .failed("the uncovered part could not be filled: \(error)")
         }
     }
 }

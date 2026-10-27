@@ -34,13 +34,17 @@ public struct ListContent: Equatable, Sendable {
     public var numbered: Bool
     /// As a text layer's `font`: a role, a family, a file.
     public var font: String?
+    /// The items' colour.
     public var color: Paint
     /// The separators' and numbers' colour; `nil` is the items'.
     public var separatorColor: Paint?
     /// The details' colour (running times); `nil` is the items'.
     public var detailColor: Paint?
+    /// How lines align across the frame.
     public var align: TextAlign
+    /// Where the block of lines sits, top to bottom.
     public var valign: VerticalAlign
+    /// How the items are cased.
     public var textCase: TextCase
     /// Letter spacing, thousandths of the size.
     public var tracking: Double
@@ -54,6 +58,7 @@ public struct ListContent: Equatable, Sendable {
     /// Whether every item fitted, when prepared.
     public var fitted: Bool?
 
+    /// A list of `items`.
     public init(items: ListItems, flow: ListFlow = .inline, columns: Int = 1, sizes: [Double] = [140, 80, 50],
                 weights: [String]? = nil, separator: String = "·", numbered: Bool = false, font: String? = nil,
                 color: Paint = .color(.white), separatorColor: Paint? = nil, detailColor: Paint? = nil,
@@ -78,6 +83,7 @@ public struct ListContent: Equatable, Sendable {
         self.minScale = minScale
     }
 
+    /// Equal when everything written to a recipe is; the prepared lines are not compared.
     public static func == (a: ListContent, b: ListContent) -> Bool {
         a.items == b.items && a.flow == b.flow && a.columns == b.columns && a.sizes == b.sizes && a.weights == b.weights
             && a.separator == b.separator && a.numbered == b.numbered && a.font == b.font && a.color == b.color
@@ -85,32 +91,4 @@ public struct ListContent: Equatable, Sendable {
             && a.valign == b.valign && a.textCase == b.textCase && a.tracking == b.tracking && a.lineHeight == b.lineHeight
             && a.minScale == b.minScale
     }
-}
-
-/// A list's items: written out, or text to split once its slots are filled.
-public enum ListItems: Equatable, Sendable {
-    case items([ListItem])
-    case text(String)
-}
-
-/// One name, title or credit.
-public struct ListItem: Equatable, Sendable {
-    public var text: String
-    /// Billing, from 1 (the top).
-    public var tier: Int
-    /// What sits beside it on its line (a running time), for `lines`.
-    public var detail: String?
-
-    public init(text: String, tier: Int = 1, detail: String? = nil) {
-        self.text = text
-        self.tier = tier
-        self.detail = detail
-    }
-}
-
-public enum ListFlow: String, DesignChoice {
-    /// Items run on with separators, lines balanced: a line-up.
-    case inline
-    /// One item a line, in columns: a tracklist, credits.
-    case lines
 }

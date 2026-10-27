@@ -12,6 +12,7 @@ import Foundation
 public struct CanvasGeometry: Equatable, Sendable {
     /// The bitmap: trim plus bleed on every side.
     public let pixelWidth: Int
+    /// The bitmap's height: trim plus bleed top and bottom.
     public let pixelHeight: Int
     /// The finished page.
     public let trim: CGRect

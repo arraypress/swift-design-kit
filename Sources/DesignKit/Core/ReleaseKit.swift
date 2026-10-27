@@ -18,6 +18,7 @@
 
 import Foundation
 
+/// One design laid out again as a matched set of pages.
 public enum ReleaseKit {
 
     /// The sizes a set is made in, by short name, and the preset each is.

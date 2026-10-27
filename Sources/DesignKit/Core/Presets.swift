@@ -12,6 +12,7 @@
 
 import Foundation
 
+/// The named page sizes, with their safe areas and platform rules.
 public enum Presets {
 
     /// Every preset, screen first then print.

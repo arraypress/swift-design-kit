@@ -11,15 +11,7 @@
 import CoreGraphics
 import Foundation
 
-/// A finished design: the picture, how it was laid out, and what the checks measured.
-public struct Rendered: Sendable {
-    public let prepared: PreparedDesign
-    public let plan: Plan
-    /// The full-size picture, out to the bleed.
-    public let image: CGImage
-    public let report: CheckReport
-}
-
+/// The whole job: prepare, plan, draw at full size, check.
 public enum DesignEngine {
 
     /// `design` drawn and checked.

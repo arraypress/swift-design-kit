@@ -18,18 +18,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
 
-/// What a design is shown as.
-public enum MockupKind: String, DesignChoice {
-    /// A square record sleeve, the disc half out.
-    case vinyl
-    /// A CD in its jewel case.
-    case cd
-    /// A phone showing the design full screen.
-    case phone
-    /// A poster pasted on a plaster wall, turned a little in perspective.
-    case poster
-}
-
+/// A finished design shown as the thing it becomes: a sleeve, a jewel case, a phone, a poster.
 public enum Mockups {
 
     /// `design` shown as `kind`, on a scene `width`×`height`; `seed` varies the backdrop's grain.

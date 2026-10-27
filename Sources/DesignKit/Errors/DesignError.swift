@@ -22,6 +22,7 @@ public enum DesignError: Error, Equatable, Sendable, LocalizedError {
     /// Something underneath failed: a renderer, a model, a write (upstream).
     case failed(String)
 
+    /// The message, as the CLI prints it.
     public var errorDescription: String? {
         switch self {
         case .invalid(let message), .missing(let message), .modelMissing(let message), .failed(let message): message

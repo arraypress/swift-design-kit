@@ -17,6 +17,7 @@ import CoreGraphics
 import Foundation
 import PSDKit
 
+/// A design as a layered Photoshop file, one layer per design layer.
 public enum LayeredExport {
 
     /// What a layered file cannot carry as the design has it, said once per kind.

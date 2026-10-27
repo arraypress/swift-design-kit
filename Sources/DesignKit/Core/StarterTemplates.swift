@@ -12,6 +12,7 @@
 import Foundation
 import RecipeKit
 
+/// The built-in starter templates, checked as a catalogue.
 public enum StarterTemplates {
 
     /// Every built-in template.

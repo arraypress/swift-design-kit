@@ -10,21 +10,37 @@ import Foundation
 
 /// How a layer combines with what is under it.
 public enum BlendMode: String, DesignChoice {
+    /// Drawn over what is under it.
     case normal
+    /// Darkens: the colours multiplied.
     case multiply
+    /// Lightens: the inverse of multiply.
     case screen
+    /// Multiply in the darks, screen in the lights.
     case overlay
+    /// The darker of the two, channel by channel.
     case darken
+    /// The lighter of the two, channel by channel.
     case lighten
+    /// Brightens what is under it by the layer's colour.
     case colorDodge = "color-dodge"
+    /// Darkens what is under it by the layer's colour.
     case colorBurn = "color-burn"
+    /// A gentle overlay, lit softly.
     case softLight = "soft-light"
+    /// Overlay with the layer and what is under it swapped.
     case hardLight = "hard-light"
+    /// The difference of the two colours.
     case difference
+    /// Like difference, with less contrast.
     case exclusion
+    /// The layer's hue, the rest from what is under it.
     case hue
+    /// The layer's saturation, the rest from what is under it.
     case saturation
+    /// The layer's hue and saturation, the lightness from what is under it.
     case color
+    /// The layer's lightness, the colour from what is under it.
     case luminosity
     /// Linear burn: CoreGraphics' plus-darker.
     case linearBurn = "linear-burn"

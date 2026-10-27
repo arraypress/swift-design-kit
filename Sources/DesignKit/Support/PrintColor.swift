@@ -17,6 +17,7 @@ import Foundation
 import ImageIO
 import Legibility
 
+/// CMYK for print: pictures converted for the press, and the design's colours measured against its gamut.
 public enum PrintColor {
 
     /// The CMYK print files are written in: macOS's Generic CMYK Profile.
@@ -146,21 +147,4 @@ public enum PrintColor {
         func f(_ t: Double) -> Double { t > 216.0 / 24389 ? cbrt(t) : (24389.0 / 27 * t + 16) / 116 }
         return (116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z)))
     }
-}
-
-/// How the design's colours fare in CMYK.
-public struct GamutReport: Codable, Equatable, Sendable {
-    /// The share of the picture's pixels that move more than ``PrintColor/outOfGamut``.
-    public var outside: Double
-    /// The furthest any pixel moves (ΔE76).
-    public var worst: Double
-    /// Each word and shape colour: how far it moves, and the CMYK it prints as (percent).
-    public var inks: [GamutInk]
-}
-
-public struct GamutInk: Codable, Equatable, Sendable {
-    public var color: String
-    public var deltaE: Double
-    public var cmyk: [Double]
-    public var outside: Bool
 }

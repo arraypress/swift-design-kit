@@ -20,13 +20,16 @@ public struct Brand: Equatable, Sendable {
     public var colors: [ColorRole: DesignColor]
     /// A type pairing, or faces given by hand.
     public var pairing: String?
+    /// The face for titles, given by hand.
     public var display: Face?
+    /// The face for everything else, given by hand.
     public var text: Face?
     /// Where the logo goes; `nil` picks the corner the words leave free.
     public var corner: Anchor?
     /// The logo's width, as a share of the safe area's width.
     public var logoWidth: Double
 
+    /// A brand kit called `name`.
     public init(name: String, logo: String? = nil, colors: [ColorRole: DesignColor] = [:], pairing: String? = nil,
                 display: Face? = nil, text: Face? = nil, corner: Anchor? = nil, logoWidth: Double = 0.14) {
         self.name = name

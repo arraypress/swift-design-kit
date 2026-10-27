@@ -18,12 +18,14 @@ public struct Design: Equatable, Sendable {
     /// The recipe format this build writes and reads.
     public static let formatVersion = 1
 
+    /// The page.
     public var canvas: CanvasSpec
     /// The template it was made from, for the record.
     public var template: String?
     /// The template's slots and the values they hold. Text keeps its
     /// `{slot}` markers, so changing a value here changes the words.
     public var vars: [String: String]
+    /// The column grid frames span.
     public var grid: Grid
     /// The type: a pairing, and the faces it resolved to (pinned when made).
     public var fonts: Typesetting?
@@ -37,8 +39,10 @@ public struct Design: Equatable, Sendable {
     public var brand: String?
     /// How it moves when written as a video (`-o loop.mp4`).
     public var motion: MotionSpec?
+    /// Every layer, back to front.
     public var layers: [Layer]
 
+    /// A design of `layers` on `canvas`.
     public init(canvas: CanvasSpec, template: String? = nil, vars: [String: String] = [:],
                 grid: Grid = .standard, fonts: Typesetting? = nil, palette: PaletteSpec? = nil,
                 googleFonts: String? = nil, brand: String? = nil, layers: [Layer]) {
@@ -52,60 +56,5 @@ public struct Design: Equatable, Sendable {
         self.brand = brand
         self.motion = nil
         self.layers = layers
-    }
-}
-
-/// A starter design with slots: `cover-clean` with `title`, `artist`,
-/// `background`.
-public struct Template: Equatable, Sendable {
-    /// Kebab-case: `cover-clean`.
-    public var name: String
-    /// What it is, in a line.
-    public var summary: String
-    /// The preset it is drawn for.
-    public var preset: String
-    /// The values it takes (`--var title=…`), each with a default.
-    public var slots: [TemplateSlot]
-    public var grid: Grid
-    /// The type pairing it is set in, unless the maker picks another.
-    public var pairing: String?
-    /// How its palette roles are found.
-    public var palette: PaletteSpec?
-    /// The layers as written, `{slot}` markers and all: JSON, read strictly
-    /// once the slots are filled (a marker can stand for a colour or a
-    /// whole background, which only reads once it is one).
-    public var layers: Data
-
-    public init(name: String, summary: String, preset: String, slots: [TemplateSlot], grid: Grid = .standard,
-                pairing: String? = nil, palette: PaletteSpec? = nil, layers: Data) {
-        self.name = name
-        self.summary = summary
-        self.preset = preset
-        self.slots = slots
-        self.grid = grid
-        self.pairing = pairing
-        self.palette = palette
-        self.layers = layers
-    }
-}
-
-/// One value a template takes.
-public struct TemplateSlot: Equatable, Sendable, Codable {
-    /// Lowercase: `title`.
-    public var name: String
-    /// What it fills, in a few words.
-    public var summary: String
-    /// Used when no value is given.
-    public var defaultValue: String
-
-    public init(name: String, summary: String, defaultValue: String) {
-        self.name = name
-        self.summary = summary
-        self.defaultValue = defaultValue
-    }
-
-    enum CodingKeys: String, CodingKey, CaseIterable {
-        case name, summary
-        case defaultValue = "default"
     }
 }

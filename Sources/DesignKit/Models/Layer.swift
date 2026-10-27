@@ -17,24 +17,34 @@ public struct Layer: Equatable, Sendable {
 
     /// A name other layers and `--set` refer to it by (`title`, `background`).
     public var id: String?
+    /// Where it goes, by rule.
     public var frame: Placement
     /// `0…1`.
     public var opacity: Double
+    /// How it meets what is under it.
     public var blend: BlendMode
     /// Degrees, clockwise.
     public var rotation: Double
+    /// A drop shadow cast by all of it.
     public var shadow: Shadow?
+    /// A soft light round all of it.
     public var glow: Glow?
     /// Faded out toward an edge.
     public var fade: Fade?
+    /// What it draws.
     public var content: Content
 
     /// What a layer draws.
     public enum Content: Equatable, Sendable {
+        /// The picture behind everything.
         case background(BackgroundContent)
+        /// Words.
         case text(TextContent)
+        /// A picture, or the subject lifted out of one.
         case image(ImageContent)
+        /// A drawn shape.
         case shape(ShapeContent)
+        /// A QR code.
         case qr(QRContent)
         /// Paper, halftone dots, noise, scanlines or film dust.
         case texture(TextureContent)
@@ -45,6 +55,7 @@ public struct Layer: Equatable, Sendable {
         case list(ListContent)
     }
 
+    /// A layer drawing `content` in `frame`.
     public init(id: String? = nil, frame: Placement = .full, opacity: Double = 1, blend: BlendMode = .normal,
                 rotation: Double = 0, shadow: Shadow? = nil, glow: Glow? = nil, fade: Fade? = nil, content: Content) {
         self.id = id

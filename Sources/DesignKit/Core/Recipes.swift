@@ -14,6 +14,7 @@ import Foundation
 import RecipeKit
 import VideoGradeLook
 
+/// A design as a recipe file, read strictly and written key-sorted, and changed by `--set`.
 public enum Recipes {
 
     /// The recipe format.

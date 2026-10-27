@@ -72,6 +72,7 @@ extension Layer: Codable {
     }
 
 
+    /// A layer by its `type`: the common keys and the kind's own beside them; an unknown key is refused with the close one.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
         let path = RecipeJSON.path(decoder.codingPath)
@@ -255,6 +256,7 @@ extension Layer: Codable {
         return colors
     }
 
+    /// Writes its `type`, the common keys, and the kind's own beside them.
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: Keys.self)
         try c.encodeIfPresent(id, forKey: .id)

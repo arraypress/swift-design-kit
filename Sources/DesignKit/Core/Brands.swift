@@ -16,6 +16,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
+/// Brand kits, read and written, and laid over a design by value.
 public enum Brands {
 
     /// The order plain colours (`#E4572E,#17BEBB`) fill the palette roles in.

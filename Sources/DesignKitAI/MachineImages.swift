@@ -24,6 +24,7 @@ import Foundation
 import ImageGeneration
 import ImageIO
 
+/// Backgrounds drawn from words on this machine, behind the engine's `ImageGenerating`.
 public actor MachineImages: ImageGenerating {
 
     /// The commit each model's export is pinned to — the ones `imagine` fetches.
@@ -48,16 +49,20 @@ public actor MachineImages: ImageGenerating {
         self.cache = cache
     }
 
+    /// This user's Application Support folder, where `imagine` installs its models.
     public static var applicationSupport: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
+    /// Where drawn backgrounds are kept by their pin unless told otherwise.
     public static var defaultCache: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("design/backgrounds")
     }
 
     // MARK: Pinning
 
+    /// `fill` with its model, revision, shape (from the shapes installed, nearest
+    /// `width`×`height`) and seed pinned. Nothing is drawn.
     public nonisolated func pinned(_ fill: AIFill, width: Int, height: Int) throws(DesignError) -> AIFill {
         var fill = fill
         let model = try Self.model(fill.model)
@@ -136,6 +141,7 @@ public actor MachineImages: ImageGenerating {
 
     // MARK: Drawing
 
+    /// The picture for a pinned fill, from the cache when it was drawn before.
     public func image(for fill: AIFill) async throws(DesignError) -> CGImage {
         let model = try Self.model(fill.model)
         guard let aspectName = fill.aspect, let aspect = ImageAspect(rawValue: aspectName), let seed = fill.seed else {
@@ -166,6 +172,7 @@ public actor MachineImages: ImageGenerating {
 
     // MARK: Editing
 
+    /// `edit` with model, revision, shape and seed pinned, as a made picture's are.
     public nonisolated func pinned(_ edit: AIEdit, width: Int, height: Int) throws(DesignError) -> AIEdit {
         var edit = edit
         let model = try Self.model(edit.model)
@@ -180,6 +187,7 @@ public actor MachineImages: ImageGenerating {
         return edit
     }
 
+    /// `image` changed by a pinned edit, from the cache when it was made before.
     public func edited(_ image: CGImage, edit: AIEdit) async throws(DesignError) -> CGImage {
         let model = try Self.model(edit.model)
         guard let aspectName = edit.aspect, let aspect = ImageAspect(rawValue: aspectName), let seed = edit.seed else {

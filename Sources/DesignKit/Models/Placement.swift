@@ -36,6 +36,7 @@ public struct Placement: Equatable, Sendable {
 
     /// A nudge, as fractions of the area (right and down are positive).
     public var x: Double
+    /// The nudge down, as a fraction of the area's height.
     public var y: Double
 
     /// A span of the column grid: first column (from 1) and how many.
@@ -45,11 +46,13 @@ public struct Placement: Equatable, Sendable {
     /// Placed under (or over) an earlier layer, by its id: the frame's top
     /// goes `gap` below that layer's drawn bottom (its lines, for text).
     public var below: String?
+    /// Placed over an earlier layer, by its id: the frame's bottom goes `gap` above its drawn top.
     public var above: String?
 
     /// The space for `below` / `above`, as a fraction of the area's height.
     public var gap: Double
 
+    /// A frame by rule; the default is the whole area.
     public init(area: Area? = nil, anchor: Anchor = .center, width: Double = 1, height: Double = 1,
                 aspect: Double? = nil, margin: Double = 0, x: Double = 0, y: Double = 0,
                 columns: [Int]? = nil, below: String? = nil, above: String? = nil, gap: Double = 0) {
@@ -69,21 +72,4 @@ public struct Placement: Equatable, Sendable {
 
     /// The whole area.
     public static let full = Placement()
-}
-
-/// The column grid `columns` spans count over.
-public struct Grid: Equatable, Sendable {
-
-    /// How many columns across the safe area.
-    public var columns: Int
-
-    /// The space between columns, as a fraction of the area's width.
-    public var gutter: Double
-
-    public init(columns: Int = 12, gutter: Double = 0.02) {
-        self.columns = columns
-        self.gutter = gutter
-    }
-
-    public static let standard = Grid()
 }

@@ -15,8 +15,10 @@ import DesignKit
 import Foundation
 import Upscale
 
+/// SwinIR-L ×4 enlargement on this machine, behind the engine's `ImageUpscaling`.
 public actor MachineUpscaler: ImageUpscaling {
 
+    /// How many times larger each pass makes a picture.
     public nonisolated let factor = 4
 
     /// SwinIR at the commit `upscale` installs it from.
@@ -35,6 +37,7 @@ public actor MachineUpscaler: ImageUpscaling {
     /// Whether the model is there.
     public nonisolated var isInstalled: Bool { FileManager.default.fileExists(atPath: modelURL.path) }
 
+    /// `image`, four times larger; the model loads on first use.
     public func upscale(_ image: CGImage) async throws(DesignError) -> CGImage {
         guard isInstalled else {
             throw .modelMissing("the SwinIR upscaler is not installed at \(modelURL.path) — `upscale` installs it on first use")

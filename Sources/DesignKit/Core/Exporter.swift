@@ -16,28 +16,7 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-public enum OutputFormat: String, DesignChoice {
-    case png
-    case jpeg
-    case pdf
-    /// Layered Photoshop: one layer per design layer.
-    case psd
-    /// Vector: shapes and words as SVG, pictures embedded.
-    case svg
-
-    /// The format a file name asks for.
-    public static func of(_ url: URL) -> OutputFormat? {
-        switch url.pathExtension.lowercased() {
-        case "png": .png
-        case "jpg", "jpeg": .jpeg
-        case "pdf": .pdf
-        case "psd": .psd
-        case "svg": .svg
-        default: nil
-        }
-    }
-}
-
+/// A finished design written as PNG, JPEG or PDF.
 public enum Exporter {
 
     /// The slug round a print page that holds the crop marks, millimetres.

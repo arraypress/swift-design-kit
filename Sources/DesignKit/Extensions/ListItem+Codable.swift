@@ -25,6 +25,7 @@ extension ListItem: Codable {
         self.init(text: try c.decode(String.self, forKey: .text), tier: tier, detail: try c.decodeIfPresent(String.self, forKey: .detail))
     }
 
+    /// Writes it as a design file holds it.
     public func encode(to encoder: any Encoder) throws {
         if tier == 1, detail == nil {
             var c = encoder.singleValueContainer()

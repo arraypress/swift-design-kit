@@ -28,6 +28,7 @@ extension Fill: Codable {
         }
     }
 
+    /// An object by its `kind`, or the short string a template or `--var` writes.
     public init(from decoder: any Decoder) throws {
         let path = RecipeJSON.path(decoder.codingPath)
         if let text = try? decoder.singleValueContainer().decode(String.self) {
@@ -61,6 +62,7 @@ extension Fill: Codable {
         }
     }
 
+    /// Writes the object, with everything pinned.
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -91,25 +93,6 @@ extension Fill: Codable {
             try c.encodeIfPresent(spec.aspect, forKey: .aspect)
             try c.encodeIfPresent(spec.steps, forKey: .steps)
             try c.encodeIfPresent(spec.style, forKey: .style)
-        }
-    }
-}
-
-extension LookReference: Codable {
-
-    public init(from decoder: any Decoder) throws {
-        if let path = try? decoder.singleValueContainer().decode(String.self) {
-            self = .file(path)
-        } else {
-            self = .look(try GradeLookCoding.decode(from: decoder))
-        }
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.singleValueContainer()
-        switch self {
-        case .file(let path): try c.encode(path)
-        case .look(let look): try c.encode(look)
         }
     }
 }

@@ -452,6 +452,10 @@ subject mattes) compiles its Core AI path only where the SDK has it, from
 and lifts subjects with Vision there. The AI product (`DesignKitAI`) is
 macOS / iOS device only.
 
+The sources keep the fleet's layout: one type per file, placed by role
+(Core, Models, Enums, Errors, Extensions, Support; the built-in catalogues
+in Templates), and every public declaration documented.
+
 ## License
 
 MIT, see [LICENSE](LICENSE). The bundled fonts are OFL (in DocumentTheme).

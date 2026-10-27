@@ -13,6 +13,7 @@
 import Foundation
 import RecipeKit
 
+/// Carousels made from their templates, read and written as recipes, and split into one design per page.
 public enum Carousels {
 
     /// The recipe format.
@@ -22,14 +23,17 @@ public enum Carousels {
     /// The pages most a carousel takes (Instagram's limit is 20).
     public static let maximumPages = 20
 
+    /// A carousel from its recipe's bytes, read strictly.
     public static func decoded(_ data: Data) throws(RecipeError) -> Carousel {
         try RecipeJSON.decoded(data, as: Carousel.self, format: format)
     }
 
+    /// The carousel as recipe bytes.
     public static func encoded(_ carousel: Carousel) throws(RecipeError) -> Data {
         try RecipeJSON.encoded(carousel)
     }
 
+    /// The carousel in the recipe at `url`, its paths resolved against the file's folder.
     public static func load(_ url: URL) throws(RecipeFileError) -> Carousel {
         let carousel = try RecipeFiles.load(url) { data in try decoded(data) }
         let folder = url.deletingLastPathComponent()
@@ -39,6 +43,7 @@ public enum Carousels {
         return moved
     }
 
+    /// Writes the carousel to `url`, its paths made relative to the file's folder.
     public static func save(_ carousel: Carousel, to url: URL, overwrites: Bool) throws(RecipeFileError) {
         let folder = url.deletingLastPathComponent()
         var stored = carousel
@@ -131,17 +136,4 @@ public enum Carousels {
         }
         return Data(text.utf8)
     }
-}
-
-public enum CarouselTemplates {
-
-    public static let all: [CarouselTemplate] = catalogue
-
-    public static func named(_ name: String) -> CarouselTemplate? { all.first { $0.name == name.lowercased() } }
-
-    static let catalogue: [CarouselTemplate] = {
-        do { return try JSONDecoder().decode([CarouselTemplate].self, from: Data(json.utf8)) } catch {
-            preconditionFailure("the carousel catalogue does not read: \(error)")
-        }
-    }()
 }
