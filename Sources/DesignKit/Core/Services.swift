@@ -69,6 +69,15 @@ public protocol Inpainting: Sendable {
     func filled(_ image: CGImage, mask: CGImage) async throws(DesignError) -> CGImage
 }
 
+/// Lifts the main subject out of a picture.
+public protocol SubjectMatting: Sendable {
+    /// The model and its revision, as a recipe records them.
+    var pin: String { get }
+    /// The main subject of `image`, cut out at `image`'s own size (clear
+    /// everywhere else, premultiplied), or `nil` when there is none.
+    func subject(of image: CGImage) async throws(DesignError) -> CGImage?
+}
+
 /// What a render may call on.
 public struct DesignServices: Sendable {
 
@@ -81,9 +90,14 @@ public struct DesignServices: Sendable {
     /// Fetches open fonts on first use; `nil` refuses an open font not already fetched.
     public var fonts: (any FontFetching)?
 
-    /// Depth and fill, for a parallax motion; `nil` refuses one.
+    /// Depth, for a parallax motion; `nil` refuses one.
     public var depth: (any DepthEstimating)?
+
+    /// The fill behind a parallax's subject; `nil` refuses a parallax.
     public var inpainter: (any Inpainting)?
+
+    /// The subject a parallax moves as one rigid layer; `nil` moves the background planes alone.
+    public var subject: (any SubjectMatting)?
 
     /// Where relative paths in the design (pictures, fonts, looks) are found.
     public var folder: URL
@@ -91,6 +105,7 @@ public struct DesignServices: Sendable {
     /// Called with a short line as slow work starts (a model loading, a picture drawing).
     public var progress: (@Sendable (String) -> Void)?
 
+    /// The services a render may use; any left out refuses the work that needs it.
     public init(generator: (any ImageGenerating)? = nil, upscaler: (any ImageUpscaling)? = nil,
                 fonts: (any FontFetching)? = nil,
                 folder: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath),

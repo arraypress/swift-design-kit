@@ -394,24 +394,51 @@ Image) with tape and a shadow. Everything is drawn from the design and a seed
 `Animator.animate(rendered, motion:, to: url)` writes a seamless H.264 loop
 (Spotify Canvas, stories: 3–8 s, 9:16 by the design's canvas) of the design's
 art moving under its still words. `motion` is `zoom` (a push in and back),
-`drift` (a figure of eight) or `parallax`: the art's depth found by Depth
-Anything V2 Small, the nearest third split off with a soft edge, what it
-uncovers filled by LaMa (the hole grown by the movement), and a camera circling
-so the near part moves three times as far as the rest. Over the art: light
-`leaks` on closed paths, `particles` rising one frame-height a loop, grain from
-a cycle of eight. Every movement is a periodic function of the loop's phase, so
-the frame after the last is the first. No video model.
+`drift` (a figure of eight) or `parallax`, 2.5D in rigid layers: the main
+subject cut out whole (BiRefNet, the model `cutout` installs; Vision where it
+is not), the hole behind it filled once by LaMa, wide enough for the furthest
+the subject slides; the filled background split by its depth (Depth Anything
+V2 Small) into up to three bands with soft borders (1-D k-means on the depth,
+so the borders fall where the depth jumps; bands closer than 0.12 merge), each
+band a rigid plane moving less the further it is, and every plane but the
+nearest with the strip a nearer plane slides off filled too. Every layer moves
+by ONE transform a frame (a sway with a slight figure-of-eight lift and a
+gentle push in, about the subject), so nothing in a layer can tear; the frame
+is enlarged just enough that no plane's edge ever shows, and the move is held
+so the subject slides at most 3.5 % of the short side against the far plane
+(a bigger `amount` is cut down, with a warning). Over the art: light `leaks`
+on closed paths, `particles` rising one frame-height a loop, grain from a cycle
+of eight. Every movement is a periodic function of the loop's phase, so the
+frame after the last is the first. No video model.
+
+0.5 warped the art by its depth pixel by pixel; the thin parts of a generated
+cyclist (spokes, legs) fell at different depths and tore apart, while its seam
+and contrast checks passed — they never looked at the subject. So a parallax
+now also measures the subject on every frame: its mask, moved by its one
+transform, must show the subject (≥ 98 % of the silhouette, the scene before
+light and grain compared with the cut-out drawn alone) with no background
+pixel deep inside it, and the subject is cut again from three frames and
+compared with its moved mask (below 85 % warns). A tear fails the check (a
+test tears a thin-spoked wheel in two and sees it fail).
 
 Measured on every loop: the seam (the last frame against the first, over the
 typical step between frames; 1.6 and up fails), each text layer's contrast on
 every frame, and read-back on three frames. A 6 s story loop with leaks and 80
 particles: seam 0.8×, every word 10.5:1 or better on every frame, 54 s in a
-release build; a parallax loop over a generated coastal road (FLUX.2 Klein):
-seam 1.0×, title 5.4:1 at its worst frame, 28 s with both models loaded; a
-replay draws the same frames (the MP4's bytes differ by its timestamps). The
-words are drawn still over the moving art, so a blend between them and the art
-(a multiplied texture) is lost in a loop. The recipe keeps `motion`, with the
-depth and fill models a parallax used.
+release build. Parallax
+(0.6.0), three 6 s story loops at 1080×1920 over generated pictures (FLUX.2
+Klein 4B), `--amount 0.05`: a cyclist on a coastal road, a portrait with loose
+hair and a trumpet with thin rods — the subject's whole outline on every frame
+(100 %), no background pixel inside it, re-cut 98.8–99.6 %, sliding 24–34 px,
+seam 1.08–1.31×, every word 5.3:1 or better; 33 s for the cyclist with the
+models warm. Fly-away hairs the matte leaves out stay with the background, and
+LaMa's fill can show a faint hair-coloured arc at the far end of the sway: a
+smaller `amount` hides it. A replay draws the same frames (the MP4's
+bytes differ by its timestamps); `zoom` and `drift` draw exactly the frames
+0.5 drew. The words are drawn still over the moving art, so a blend between
+them and the art (a multiplied texture) is lost in a loop. The recipe keeps
+`motion`, with the depth, fill and subject models a parallax used.
+The parallax rules — covering the frame, the base scale, the slide, the planes, the depth bands, the integrity and re-cut measures — are each broken on purpose and caught (10 of 10 mutations); the suite is 108 tests, 113 s with Vision's requests taken in turns (swift-legibility 0.3.4).
 
 ## Requirements
 
